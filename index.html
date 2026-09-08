@@ -375,7 +375,7 @@ function drawChart(){
 
   // sea level line
   svg.appendChild(el("line",{x1:mL,y1:y(0),x2:W-mR,y2:y(0),class:"sea-line"}));
-  const st=el("text",{x:W-mR,y:y(0)-6,"text-anchor":"end",class:"sea-tag"});
+  const st=el("text",{x:mL+3,y:y(0)-6,"text-anchor":"start",class:"sea-tag"});
   st.textContent="SEA LEVEL"; svg.appendChild(st);
 
   const n=sel.length;
@@ -415,14 +415,18 @@ function drawChart(){
     sv.textContent=fmt(m.summit);
     svg.appendChild(sv);
 
-    // climb value inside the triangle — white, so it reads on the amber
-    if(yBase-ySummit>34){
-      const cvY=ySummit + (yBase-ySummit)*0.60;
-      const cv=el("text",{x:cx,y:cvY,"text-anchor":"middle",class:"m-climb-val"});
+    // climb value — anchored just above the ground line, so it shows even on
+    // short mountains (Drakensberg, Table Mtn); white for contrast on the amber
+    const triH=yBase-ySummit;
+    if(triH>9){
+      const numY=yBase-7;
+      const cv=el("text",{x:cx,y:numY,"text-anchor":"middle",class:"m-climb-val"});
       cv.textContent="↑ "+fmt(m.climb);
       svg.appendChild(cv);
-      const cap=el("text",{x:cx,y:cvY+10,"text-anchor":"middle",class:"m-climb-cap"});
-      cap.textContent="CLIMB"; svg.appendChild(cap);
+      if(triH>54){
+        const cap=el("text",{x:cx,y:numY-11,"text-anchor":"middle",class:"m-climb-cap"});
+        cap.textContent="CLIMB"; svg.appendChild(cap);
+      }
     }
 
     // name at bottom — rotate when columns get tight
