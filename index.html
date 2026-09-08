@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Two Heights</title>
 <meta name="description" content="The height on the sign versus the height you actually climb.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -214,21 +219,27 @@
   }
   .row.open .detail{max-height:260px;border-top-color:var(--line-soft)}
   .detail-in{padding:12px 13px 14px 13px}
-  .fact{font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 11px}
-  .headstart{
-    display:flex;align-items:center;gap:10px;padding:9px 11px;
-    background:var(--card-2);border-radius:9px;font-size:12.5px;
+  .fact{font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 10px}
+  .statline{
+    display:flex;align-items:flex-start;gap:9px;padding:9px 11px;margin-top:8px;
+    background:var(--card-2);border-radius:9px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;
   }
-  .headstart .hs-num{font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
-  .headstart .hs-lab{color:var(--ink-soft)}
-  .hs-chip{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--rock);border:1px solid var(--rock-soft);border-radius:20px;padding:2px 8px;white-space:nowrap}
+  .statline:first-of-type{margin-top:0}
+  .statline b{color:var(--ink);font-weight:600;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  .statline .route{color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:11px}
+  .statline.geo{background:var(--climb-tint)}
+  .chip{flex:0 0 auto;font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:var(--sea);border:1px solid var(--sea);border-radius:20px;padding:3px 8px;white-space:nowrap;margin-top:1px}
+  .chip.alt{color:var(--climb);border-color:var(--climb)}
 
   footer{margin-top:26px;text-align:center;color:var(--ink-faint);font-size:11.5px;line-height:1.6}
   footer .note{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.02em;max-width:40ch;margin:0 auto}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
   :focus-visible{outline:2.5px solid var(--climb);outline-offset:2px;border-radius:4px}
+  img{max-width:100%}
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header class="mini">
@@ -243,8 +254,8 @@
     </div>
     <div class="chart-legend">
       <span class="lg"><span class="sw summit"></span>Summit height</span>
-      <span class="lg"><span class="sw climb"></span>Climb up</span>
-      <span class="lg"><span class="sw rock"></span>Ground you start on</span>
+      <span class="lg"><span class="sw climb"></span>The climb up</span>
+      <span class="lg"><span class="sw rock"></span>Where you start</span>
     </div>
     <div id="chartHost"></div>
     <p class="insight" id="insight"></p>
@@ -253,9 +264,9 @@
   <div class="controls">
     <div class="sort-label">Sort the mountains by</div>
     <div class="seg" role="group" aria-label="Sort by">
-      <button data-sort="summit" aria-pressed="true">Highest summit</button>
+      <button data-sort="summit" aria-pressed="true">Summit</button>
       <button data-sort="climb" aria-pressed="false">Biggest climb</button>
-      <button data-sort="head" aria-pressed="false">Head start</button>
+      <button data-sort="head" aria-pressed="false">Highest start</button>
     </div>
     <div class="seg units" role="group" aria-label="Units">
       <button data-unit="m" aria-pressed="true">m</button>
@@ -266,29 +277,31 @@
   <div class="list" id="list"></div>
 
   <footer>
-    <p class="note">Base-to-summit rises are approximate — a mountain's "foot" is a fuzzy thing. Toggle any mountain to add it to the profile above. Tap a row for the story.</p>
+    <p class="note">"Climb" is the summit height minus where the standard hiking or climbing route starts (sourced, but routes vary, so treat as close estimates). A few mountains rise far more from their true base — tap a row to see that. Toggle any mountain to add it to the chart.</p>
   </footer>
 </div>
 
 <script>
+// climb = summit − start of the standard on-foot route (sourced by research).
+// base (derived) = the start elevation you begin the hike/climb at.
 const M = [
-  {id:"everest",   name:"Everest",        loc:"Nepal / Tibet",     summit:8849, climb:3700, fact:"The highest point on Earth — but it sits on the Tibetan Plateau, already over 5 km up. From base camp you climb far less than the number on the sign."},
-  {id:"k2",        name:"K2",             loc:"Pakistan / China",  summit:8611, climb:3460, fact:"The second-highest mountain, and widely considered the hardest of the 8,000-metre peaks to climb."},
-  {id:"kangch",    name:"Kangchenjunga",  loc:"Nepal / India",     summit:8586, climb:3486, fact:"Third-highest in the world. Its name means ‘Five Treasures of the Snow’ for its five peaks."},
-  {id:"nanga",     name:"Nanga Parbat",   loc:"Pakistan",          summit:8126, climb:4600, fact:"Its Rupal Face rises about 4,600 m in one sweep — one of the tallest mountain faces on the planet."},
-  {id:"aconcagua", name:"Aconcagua",      loc:"Argentina",         summit:6961, climb:4000, fact:"The highest peak outside Asia, and the tallest in both the Southern and Western Hemispheres."},
-  {id:"chimborazo",name:"Chimborazo",     loc:"Ecuador",           summit:6263, climb:3760, fact:"Because Earth bulges at the equator, Chimborazo's summit is the farthest point from the centre of the Earth — beating Everest on that measure."},
-  {id:"denali",    name:"Denali",         loc:"Alaska, USA",       summit:6190, climb:5500, fact:"Rises higher above its own base than any mountain that sits on dry land — a roughly 5.5 km wall from foot to summit."},
-  {id:"kili",      name:"Kilimanjaro",    loc:"Tanzania",          summit:5895, climb:4900, fact:"A freestanding volcano that lifts almost 5 km straight off the flat African plains — the highest mountain in Africa."},
-  {id:"maunakea",  name:"Mauna Kea",      loc:"Hawaiʻi, USA",  summit:4207, climb:10203,fact:"Its base is on the ocean floor, nearly 6 km below the waves. Measured foot-to-summit it is over 10 km tall — the tallest mountain on Earth."},
-  {id:"montblanc", name:"Mont Blanc",     loc:"France / Italy",    summit:4808, climb:3800, fact:"The highest summit in the Alps, climbed from the valley town of Chamonix about 1 km up."},
-  {id:"puncak",    name:"Puncak Jaya",    loc:"Indonesia",         summit:4884, climb:2000, fact:"The highest island peak on Earth, on the tropical island of New Guinea — and it carries glaciers almost on the equator."},
-  {id:"rainier",   name:"Mount Rainier",  loc:"Washington, USA",   summit:4392, climb:3600, fact:"A giant glaciated volcano with huge base-to-peak relief for the lower 48 states."},
-  {id:"matterhorn",name:"Matterhorn",     loc:"Switzerland / Italy",summit:4478,climb:2860, fact:"Its unmistakable pyramid rises about 2.8 km above the town of Zermatt."},
-  {id:"fuji",      name:"Mount Fuji",     loc:"Japan",             summit:3776, climb:3000, fact:"A near-perfect freestanding cone rising about 3 km from its surroundings."},
-  {id:"drakensberg",name:"Drakensberg",     loc:"Lesotho / RSA",  summit:3482, climb:900,  fact:"Thabana Ntlenyana, the highest peak of the Drakensberg, is the tallest mountain in southern Africa. But it sits on a high plateau, so the final climb is gentle — a summit twice Table Mountain's height that you barely have to go up."},
-  {id:"bennevis",  name:"Ben Nevis",      loc:"Scotland, UK",      summit:1345, climb:1325, fact:"Britain's highest mountain, climbed almost from sea level — so the sign height and the climb are nearly the same."},
-  {id:"table",     name:"Table Mountain", loc:"Cape Town, RSA",    summit:1086, climb:1086, fact:"Rises straight out of the sea beside the city, so every metre of its quoted height is a metre you can climb — head start of zero."},
+  {id:"everest",   name:"Everest",        loc:"Nepal / Tibet",      summit:8849, climb:3485, route:"South Base Camp → South Col", geo:"", fact:"The very top of Everest is made of marine limestone — the highest rock on Earth was once the floor of an ancient sea."},
+  {id:"k2",        name:"K2",             loc:"Pakistan / China",   summit:8611, climb:3461, route:"K2 Base Camp → Abruzzi Spur", geo:"", fact:"K2 is nicknamed the 'Savage Mountain' — so steep and stormy that far fewer people have reached its top than Everest's."},
+  {id:"kangch",    name:"Kangchenjunga",  loc:"Nepal / India",      summit:8586, climb:3426, route:"SW-side Base Camp", geo:"", fact:"Its name means 'Five Treasures of the Snow', and many climbers stop just below the very top to respect it as sacred."},
+  {id:"nanga",     name:"Nanga Parbat",   loc:"Pakistan",           summit:8126, climb:3926, route:"Diamir Base Camp → Kinshofer", geo:"Its Rupal Face on the far side rises ~4,600 m in one unbroken wall — the tallest mountain face on Earth.", fact:"Nanga Parbat means 'Naked Mountain', and its giant south wall is the tallest single rock-and-ice face in the world."},
+  {id:"aconcagua", name:"Aconcagua",      loc:"Argentina",          summit:6961, climb:4011, route:"Horcones gate → Normal Route", geo:"", fact:"The highest mountain outside Asia — yet you can reach the top by walking, without ropes."},
+  {id:"chimborazo",name:"Chimborazo",     loc:"Ecuador",            summit:6263, climb:1463, route:"Carrel Refuge → Whymper route", geo:"Thanks to Earth's equatorial bulge, its summit is the farthest point from Earth's centre — beating Everest on that measure.", fact:"Standing on top of Chimborazo puts you closer to outer space than anywhere else on the planet."},
+  {id:"denali",    name:"Denali",         loc:"Alaska, USA",        summit:6190, climb:3995, route:"Kahiltna Base Camp → West Buttress", geo:"Denali rises about 5,500 m from its ~700 m plateau — a bigger base-to-peak wall than Everest has.", fact:"Denali means 'The Tall One' — so cold and high that climbers haul their gear on sleds across giant glaciers."},
+  {id:"kili",      name:"Kilimanjaro",    loc:"Tanzania",           summit:5895, climb:4095, route:"Machame Gate → Uhuru Peak", geo:"A freestanding volcano rising roughly 4,900 m straight off the flat African plains.", fact:"The tallest freestanding mountain on Earth — you can walk from hot jungle up to glaciers in just a few days."},
+  {id:"maunakea",  name:"Mauna Kea",      loc:"Hawaiʻi, USA",   summit:4207, climb:1403, route:"Visitor Station (2,804 m) → summit trail", geo:"Measured from its base on the ocean floor it is about 10,200 m tall — the tallest mountain on Earth, base to peak.", fact:"Measured from the sea floor, Mauna Kea beats Everest, and its snowy name means 'White Mountain'."},
+  {id:"montblanc", name:"Mont Blanc",     loc:"France / Italy",     summit:4808, climb:2436, route:"Nid d'Aigle tram → Goûter route", geo:"", fact:"Mont Blanc means 'White Mountain' — its snowy summit is the highest point in the Alps and western Europe."},
+  {id:"puncak",    name:"Puncak Jaya",    loc:"Indonesia",          summit:4884, climb:684,  route:"Base Camp (~4,200 m) → North Face", geo:"", fact:"Carstensz Pyramid is a tropical mountain so high it can be dusted with snow almost on the equator."},
+  {id:"rainier",   name:"Mount Rainier",  loc:"Washington, USA",    summit:4392, climb:2742, route:"Paradise → Disappointment Cleaver", geo:"", fact:"A giant sleeping volcano wrapped in 25 glaciers — more ice than any other mountain in the lower United States."},
+  {id:"matterhorn",name:"Matterhorn",     loc:"Switzerland / Italy",summit:4478, climb:1218, route:"Hörnli Hut → Hörnli Ridge", geo:"", fact:"Its almost-perfect pyramid was carved by ice on four sides, and it's one of the most photographed mountains on Earth."},
+  {id:"fuji",      name:"Mount Fuji",     loc:"Japan",              summit:3776, climb:1476, route:"5th Station → Yoshida Trail", geo:"", fact:"A nearly perfect cone and the most-climbed mountain in the world — many hike all night to watch the sunrise from the top."},
+  {id:"drakensberg",name:"Drakensberg",   loc:"Lesotho / RSA",      summit:3482, climb:608,  route:"Top of Sani Pass → plateau walk", geo:"", fact:"Its highest peak, Thabana Ntlenyana ('Beautiful Little Mountain'), is the tallest mountain in all of southern Africa — but it sits on a high plateau, so the walk to the top is short."},
+  {id:"bennevis",  name:"Ben Nevis",      loc:"Scotland, UK",       summit:1345, climb:1325, route:"Glen Nevis Centre → Mountain Track", geo:"", fact:"Britain's highest mountain — its summit is the collapsed remains of an ancient exploded volcano."},
+  {id:"table",     name:"Table Mountain", loc:"Cape Town, RSA",     summit:1086, climb:736,  route:"Tafelberg Rd → Platteklip Gorge", geo:"", fact:"Table Mountain has a flat top like a table, and a cloud called the 'Tablecloth' often pours over its edge."},
 ];
 M.forEach(m=>{ m.base = m.summit - m.climb; });
 
@@ -491,9 +504,9 @@ function renderList(){
     const cW=(m.climb/maxScale*100).toFixed(1);
     const u=unitLbl();
     const hs = m.base;
-    const hsTxt = hs>0 ? `${fmt(hs)} ${u} of free height before you start`
-               : hs===0 ? `zero — it rises straight from the sea`
-               : `${fmt(Math.abs(hs))} ${u} below the sea — you start underwater`;
+    const startTxt = hs>0 ? `You start at <b>${fmt(hs)} ${u}</b> above the sea and climb <b>${fmt(m.climb)} ${u}</b> to the top.`
+               : hs===0 ? `You start right at the sea and climb the whole <b>${fmt(m.climb)} ${u}</b>.`
+               : `You start <b>${fmt(Math.abs(hs))} ${u}</b> below the sea and climb <b>${fmt(m.climb)} ${u}</b>.`;
     row.innerHTML=`
       <div class="row-main" data-open="${m.id}" role="button" tabindex="0" aria-expanded="${open}" aria-label="${m.name}, tap for the story">
         <button class="tick" data-toggle="${m.id}" role="switch" aria-checked="${on}" aria-label="${on?'Remove':'Add'} ${m.name} ${on?'from':'to'} the chart"><span class="box"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></span></button>
@@ -508,10 +521,11 @@ function renderList(){
       <div class="detail">
         <div class="detail-in">
           <p class="fact">${m.fact}</p>
-          <div class="headstart">
-            <span class="hs-chip">HEAD START</span>
-            <span class="hs-lab"><span class="hs-num">${hsTxt}</span></span>
+          <div class="statline">
+            <span class="chip">THE HIKE</span>
+            <span>${startTxt} <span class="route">Route: ${m.route}.</span></span>
           </div>
+          ${m.geo?`<div class="statline geo"><span class="chip alt">FROM ITS BASE</span><span>${m.geo}</span></div>`:""}
         </div>
       </div>`;
     list.appendChild(row);
@@ -567,3 +581,5 @@ renderList();
 drawChart();
 renderInsight();
 </script>
+</body>
+</html>
