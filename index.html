@@ -80,6 +80,10 @@
   .wrap{max-width:520px;margin:0 auto;padding:0 16px 64px}
 
   /* ---- header ---- */
+  header.mini{padding:18px 0 10px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  header.mini .brand{font-family:"Zilla Slab",serif;font-weight:700;font-size:22px;letter-spacing:-.01em}
+  header.mini .brand .dot{color:var(--climb)}
+  header.mini .tag{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
   header{padding:26px 0 8px}
   .eyebrow{
     font-family:"IBM Plex Mono",monospace;
@@ -227,10 +231,9 @@
 </style>
 
 <div class="wrap">
-  <header>
-    <div class="eyebrow">Altimeter · base to summit</div>
-    <h1>The height you climb isn't the height on the <span class="em">sign</span>.</h1>
-    <p class="lede">Everyone quotes a mountain by how high its summit stands above the sea. But you don't start at the sea — so how much do you actually go <em>up</em>?</p>
+  <header class="mini">
+    <span class="brand">Two Heights<span class="dot">.</span></span>
+    <span class="tag">summit vs. the climb</span>
   </header>
 
   <section class="chart-card" aria-label="Elevation profile comparison">
