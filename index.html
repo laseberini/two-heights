@@ -317,10 +317,10 @@ const FT = 3.28084;
 let state = {
   units:"m",
   sort:"summit",
-  sel:new Set(["everest","k2","matterhorn","montblanc","drakensberg","table"]),
+  sel:new Set(["everest","k2","fuji","matterhorn","montblanc","drakensberg","table"]),
   open:null,
 };
-const SEL_VERSION=2;
+const SEL_VERSION=3;
 try{
   const s=JSON.parse(localStorage.getItem("twoHeights")||"{}");
   if(s.units) state.units=s.units;
