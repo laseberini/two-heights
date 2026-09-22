@@ -185,6 +185,17 @@
   .quiz-score{font-family:"Zilla Slab",serif;font-weight:700;font-size:46px;color:var(--climb);line-height:1}
   .quiz-score span{color:var(--ink-faint);font-size:24px}
   .quiz-msg{font-size:15px;color:var(--ink-soft);margin:10px 0 20px;text-wrap:balance}
+  /* puzzle */
+  .puzzle-body{padding:16px}
+  .puzzle-wrap{width:100%;max-width:360px;margin:0 auto}
+  .puzzle-board{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:var(--card-2);border:1px solid var(--line-soft);touch-action:manipulation}
+  .ptile{position:absolute;left:0;top:0;border:0;padding:0;margin:0;background-repeat:no-repeat;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);transition:left .14s ease,top .14s ease}
+  .puzzle-board.no-anim .ptile{transition:none}
+  .puzzle-peek{position:absolute;inset:0;background-size:cover;background-position:center;display:none;pointer-events:none}
+  .puzzle-board.peek .puzzle-peek{display:block}
+  .puzzle-solved{position:absolute;inset:0;background-size:cover;background-position:center;display:flex;align-items:flex-end;justify-content:center}
+  .puzzle-solved .ps-cap{width:100%;background:rgba(10,16,20,.62);color:#fff;padding:11px 12px;font-family:"IBM Plex Sans",sans-serif;font-size:14px;text-align:center}
+  .puzzle-solved .ps-cap b{font-family:"Zilla Slab",serif}
   .pin{background:none;border:0}
   .pin svg{display:block;filter:drop-shadow(0 1.5px 1.5px rgba(0,0,0,.45))}
   .leaflet-tooltip.pinlabel{background:rgba(18,28,33,.9);color:#fff;border:0;border-radius:6px;
@@ -331,6 +342,7 @@
     <button data-view="chart" aria-pressed="true">Chart</button>
     <button data-view="map" aria-pressed="false">Map</button>
     <button data-view="quiz" aria-pressed="false">Quiz</button>
+    <button data-view="puzzle" aria-pressed="false">Puzzle</button>
   </div>
   <section class="chart-card" id="chartCard" aria-label="Elevation profile comparison">
     <div class="chart-head">
@@ -373,6 +385,24 @@
       </div>
     </div>
     <div class="quiz-body" id="quizBody"></div>
+  </section>
+
+  <section class="chart-card puzzle-card" id="puzzleCard" aria-label="Photo slide puzzle" hidden>
+    <div class="chart-head maphead">
+      <div class="chart-title">Slide puzzle</div>
+      <div class="mapctl">
+        <div class="seg puzzsize" role="group" aria-label="Difficulty">
+          <button data-size="3" aria-pressed="true">3×3</button>
+          <button data-size="4" aria-pressed="false">4×4</button>
+        </div>
+        <button class="labeltoggle" id="puzzlePeek" type="button" aria-pressed="false" title="Peek at the finished picture">Peek</button>
+        <button class="labeltoggle" id="puzzleNew" type="button" title="New picture">New</button>
+      </div>
+    </div>
+    <div class="puzzle-body">
+      <div class="puzzle-wrap"><div class="puzzle-board" id="puzzleBoard"></div></div>
+      <p class="insight" id="puzzleNote">Slide the tiles into the empty space to rebuild the photo. Can you guess which peak it is?</p>
+    </div>
   </section>
 
   <div class="panel">
@@ -782,9 +812,11 @@ function setView(v){
   document.getElementById('chartCard').hidden = v!=='chart';
   document.getElementById('mapCard').hidden = v!=='map';
   document.getElementById('quizCard').hidden = v!=='quiz';
-  document.querySelector('.panel').hidden = v==='quiz';
+  document.getElementById('puzzleCard').hidden = v!=='puzzle';
+  document.querySelector('.panel').hidden = (v==='quiz'||v==='puzzle');
   if(v==='map') ensureMap();
   if(v==='quiz' && !quiz.order.length) startQuiz();
+  if(v==='puzzle' && !puzzle.built){ puzzle.built=true; newPuzzle(); }
 }
 document.querySelectorAll('.viewtabs [data-view]').forEach(b=>{
   b.addEventListener('click', ()=>setView(b.dataset.view));
@@ -820,7 +852,7 @@ document.querySelectorAll('.seg [data-sort]').forEach(x=>x.setAttribute("aria-pr
 document.querySelectorAll('.seg [data-unit]').forEach(x=>x.setAttribute("aria-pressed", x.dataset.unit===state.units));
 
 let rt;
-window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawChart,120);});
+window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{drawChart(); if(puzzle.built) layoutPuzzle();},120);});
 
 /* ---------------- QUIZ ---------------- */
 const QUIZ_GENERAL = [
@@ -949,8 +981,119 @@ function renderQuizResult(){
   document.getElementById('quizAgain').addEventListener('click', startQuiz);
 }
 
+/* ---------------- PHOTO SLIDE PUZZLE ---------------- */
+const PUZZLE_PICS = M.map(m=>m.id);
+let puzzle = { n:3, board:[], blank:0, moves:0, pic:null, tiles:[], built:false, solved:false };
+function newPuzzle(){
+  const n=puzzle.n;
+  puzzle.pic = PUZZLE_PICS[Math.floor(Math.random()*PUZZLE_PICS.length)];
+  puzzle.moves=0; puzzle.solved=false;
+  puzzle.board=[]; for(let i=0;i<n*n;i++) puzzle.board.push(i<n*n-1?i:null);
+  puzzle.blank=n*n-1;
+  shufflePuzzle();
+  const pk=document.getElementById('puzzlePeek'); if(pk){ pk.setAttribute('aria-pressed','false'); }
+  document.getElementById('puzzleBoard').classList.remove('peek');
+  renderPuzzleTiles();
+  const note=document.getElementById('puzzleNote');
+  note.textContent='Slide the tiles into the empty space to rebuild the photo. Can you guess which peak it is?';
+}
+function shufflePuzzle(){
+  const n=puzzle.n, b=puzzle.board; let blank=puzzle.blank, last=-1;
+  const K=n*n*30;
+  for(let k=0;k<K;k++){
+    const r=Math.floor(blank/n), c=blank%n, nb=[];
+    if(r>0) nb.push(blank-n); if(r<n-1) nb.push(blank+n);
+    if(c>0) nb.push(blank-1); if(c<n-1) nb.push(blank+1);
+    const cand=nb.filter(x=>x!==last);
+    const pick=cand[Math.floor(Math.random()*cand.length)];
+    b[blank]=b[pick]; b[pick]=null; last=blank; blank=pick;
+  }
+  puzzle.blank=blank;
+  if(isPuzzleSolved()) shufflePuzzle();
+}
+function renderPuzzleTiles(){
+  const board=document.getElementById('puzzleBoard');
+  board.classList.add('no-anim');
+  board.innerHTML=''; puzzle.tiles=[];
+  const n=puzzle.n;
+  for(let id=0; id<n*n-1; id++){
+    const t=document.createElement('button');
+    t.className='ptile'; t.type='button'; t.setAttribute('aria-label','puzzle tile');
+    t.addEventListener('click', ()=>tapTile(id));
+    board.appendChild(t); puzzle.tiles[id]=t;
+  }
+  const peek=document.createElement('div'); peek.className='puzzle-peek'; peek.id='puzzlePeekImg'; board.appendChild(peek);
+  const solved=document.createElement('div'); solved.className='puzzle-solved'; solved.id='puzzleSolved'; solved.hidden=true; board.appendChild(solved);
+  layoutPuzzle();
+  requestAnimationFrame(()=>board.classList.remove('no-anim'));
+}
+function layoutPuzzle(){
+  const board=document.getElementById('puzzleBoard');
+  if(!board || !puzzle.tiles.length) return;
+  const S=board.clientWidth; if(!S) return;
+  const n=puzzle.n, ts=S/n, url='url("photos/'+puzzle.pic+'.jpg")';
+  puzzle.tiles.forEach((t,id)=>{
+    const gr=Math.floor(id/n), gc=id%n;
+    t.style.width=ts+'px'; t.style.height=ts+'px';
+    t.style.backgroundImage=url; t.style.backgroundSize=S+'px '+S+'px';
+    t.style.backgroundPosition='-'+(gc*ts)+'px -'+(gr*ts)+'px';
+  });
+  positionPuzzle();
+  const peek=document.getElementById('puzzlePeekImg'); if(peek) peek.style.backgroundImage=url;
+}
+function positionPuzzle(){
+  const board=document.getElementById('puzzleBoard');
+  const S=board.clientWidth, n=puzzle.n, ts=S/n;
+  for(let cell=0; cell<n*n; cell++){
+    const id=puzzle.board[cell]; if(id==null) continue;
+    const t=puzzle.tiles[id], r=Math.floor(cell/n), c=cell%n;
+    t.style.left=(c*ts)+'px'; t.style.top=(r*ts)+'px';
+  }
+}
+function tapTile(id){
+  if(puzzle.solved) return;
+  const n=puzzle.n, cell=puzzle.board.indexOf(id), b=puzzle.blank;
+  const adj=(Math.abs(cell-b)===1 && Math.floor(cell/n)===Math.floor(b/n)) || (Math.abs(cell-b)===n);
+  if(!adj) return;
+  puzzle.board[b]=id; puzzle.board[cell]=null; puzzle.blank=cell; puzzle.moves++;
+  positionPuzzle();
+  const note=document.getElementById('puzzleNote');
+  note.textContent='Moves: '+puzzle.moves;
+  if(isPuzzleSolved()) onPuzzleSolved();
+}
+function isPuzzleSolved(){
+  const n=puzzle.n;
+  for(let i=0;i<n*n-1;i++) if(puzzle.board[i]!==i) return false;
+  return puzzle.board[n*n-1]==null;
+}
+function onPuzzleSolved(){
+  puzzle.solved=true;
+  const m=M.find(x=>x.id===puzzle.pic);
+  const el=document.getElementById('puzzleSolved');
+  el.style.backgroundImage='url("photos/'+puzzle.pic+'.jpg")';
+  el.innerHTML='<div class="ps-cap"><b>Solved!</b> in '+puzzle.moves+' moves — it was '+(m?m.name:'this peak')+'!</div>';
+  el.hidden=false;
+  document.getElementById('puzzleNote').textContent = (m?('That was '+m.name+'. '):'')+'Tap "New" for another photo.';
+}
+document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    puzzle.n=parseInt(b.dataset.size,10);
+    document.querySelectorAll('.puzzsize [data-size]').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    newPuzzle();
+  });
+});
+(function(){
+  const nw=document.getElementById('puzzleNew'); if(nw) nw.addEventListener('click', newPuzzle);
+  const pk=document.getElementById('puzzlePeek');
+  if(pk) pk.addEventListener('click', ()=>{
+    const on = pk.getAttribute('aria-pressed')!=='true';
+    pk.setAttribute('aria-pressed', on);
+    document.getElementById('puzzleBoard').classList.toggle('peek', on);
+  });
+})();
+
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v14";
+const VERSION = "v15";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
