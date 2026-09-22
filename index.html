@@ -190,6 +190,8 @@
   .puzzle-wrap{width:100%;max-width:360px;margin:0 auto}
   .puzzle-board{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:var(--card-2);border:1px solid var(--line-soft);touch-action:manipulation}
   .ptile{position:absolute;left:0;top:0;border:0;padding:0;margin:0;background-repeat:no-repeat;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);transition:left .14s ease,top .14s ease}
+  .ptile .pnum{position:absolute;top:3px;left:4px;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:#fff;background:rgba(10,16,20,.6);border-radius:5px;padding:1px 5px;pointer-events:none;display:none}
+  .puzzle-board.hints .ptile .pnum{display:block}
   .puzzle-board.no-anim .ptile{transition:none}
   .puzzle-peek{position:absolute;inset:0;background-size:cover;background-position:center;display:none;pointer-events:none}
   .puzzle-board.peek .puzzle-peek{display:block}
@@ -401,6 +403,7 @@
           <button data-size="3" aria-pressed="true">3×3</button>
           <button data-size="4" aria-pressed="false">4×4</button>
         </div>
+        <button class="labeltoggle" id="puzzleHints" type="button" aria-pressed="true" title="Show number hints">Hints</button>
         <button class="labeltoggle" id="puzzlePeek" type="button" aria-pressed="false" title="Peek at the finished picture">Peek</button>
         <button class="labeltoggle" id="puzzleNew" type="button" title="New picture">New</button>
       </div>
@@ -997,7 +1000,7 @@ function renderQuizResult(){
 
 /* ---------------- PHOTO SLIDE PUZZLE ---------------- */
 const PUZZLE_PICS = M.map(m=>m.id);
-let puzzle = { n:3, board:[], blank:0, moves:0, pic:null, tiles:[], built:false, solved:false };
+let puzzle = { n:3, board:[], blank:0, moves:0, pic:null, tiles:[], built:false, solved:false, hints:true };
 function newPuzzle(){
   const n=puzzle.n;
   puzzle.pic = PUZZLE_PICS[Math.floor(Math.random()*PUZZLE_PICS.length)];
@@ -1013,7 +1016,7 @@ function newPuzzle(){
 }
 function shufflePuzzle(){
   const n=puzzle.n, b=puzzle.board; let blank=puzzle.blank, last=-1;
-  const K=n*n*30;
+  const K=n*n*6;
   for(let k=0;k<K;k++){
     const r=Math.floor(blank/n), c=blank%n, nb=[];
     if(r>0) nb.push(blank-n); if(r<n-1) nb.push(blank+n);
@@ -1032,10 +1035,12 @@ function renderPuzzleTiles(){
   const n=puzzle.n;
   for(let id=0; id<n*n-1; id++){
     const t=document.createElement('button');
-    t.className='ptile'; t.type='button'; t.setAttribute('aria-label','puzzle tile');
+    t.className='ptile'; t.type='button'; t.setAttribute('aria-label','puzzle tile '+(id+1));
+    t.innerHTML='<span class="pnum">'+(id+1)+'</span>';
     t.addEventListener('click', ()=>tapTile(id));
     board.appendChild(t); puzzle.tiles[id]=t;
   }
+  board.classList.toggle('hints', puzzle.hints);
   const peek=document.createElement('div'); peek.className='puzzle-peek'; peek.id='puzzlePeekImg'; board.appendChild(peek);
   const solved=document.createElement('div'); solved.className='puzzle-solved'; solved.id='puzzleSolved'; solved.hidden=true; board.appendChild(solved);
   layoutPuzzle();
@@ -1104,6 +1109,12 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
     pk.setAttribute('aria-pressed', on);
     document.getElementById('puzzleBoard').classList.toggle('peek', on);
   });
+  const hn=document.getElementById('puzzleHints');
+  if(hn) hn.addEventListener('click', ()=>{
+    puzzle.hints=!puzzle.hints;
+    hn.setAttribute('aria-pressed', puzzle.hints);
+    document.getElementById('puzzleBoard').classList.toggle('hints', puzzle.hints);
+  });
 })();
 
 /* ---------------- LIGHTBOX (tap a photo to enlarge) ---------------- */
@@ -1122,7 +1133,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v17";
+const VERSION = "v18";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
