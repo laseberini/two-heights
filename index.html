@@ -92,14 +92,9 @@
   }
   .wrap{max-width:520px;margin:0 auto;padding:0 16px 64px}
   .stage{display:flex;flex-direction:column}
-  /* Tablet / desktop: two panes — chart stays in view, list scrolls beside it */
-  @media (min-width:760px){
-    .wrap{max-width:1080px;padding:0 24px 72px}
-    .stage{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:6px}
-    .chart-card{position:sticky;top:16px;margin-top:0}
-    .panel{min-width:0}
-    .panel .controls{margin-top:0}
-    footer{margin-top:20px}
+  /* Tablet / desktop: same single column, just let it fill the screen width */
+  @media (min-width:640px){
+    .wrap{max-width:960px;padding:0 24px 72px}
   }
 
   /* ---- header ---- */
@@ -309,6 +304,7 @@
 const M = [
   {id:"everest",   name:"Everest",        loc:"Nepal / Tibet",      summit:8849, climb:3485, route:"South Base Camp → South Col", geo:"", fact:"The very top of Everest is made of marine limestone — the highest rock on Earth was once the floor of an ancient sea."},
   {id:"k2",        name:"K2",             loc:"Pakistan / China",   summit:8611, climb:3461, route:"K2 Base Camp → Abruzzi Spur", geo:"", fact:"K2 is nicknamed the 'Savage Mountain' — so steep and stormy that far fewer people have reached its top than Everest's."},
+  {id:"lhotse",    name:"Lhotse",         loc:"Nepal / Tibet",      summit:8516, climb:3152, route:"South Base Camp → Lhotse Face", geo:"", fact:"The fourth-highest mountain on Earth, joined to Everest by a high ridge — climbers share Everest's trail most of the way before turning up the giant Lhotse Face of ice."},
   {id:"kangch",    name:"Kangchenjunga",  loc:"Nepal / India",      summit:8586, climb:3426, route:"SW-side Base Camp", geo:"", fact:"Its name means 'Five Treasures of the Snow', and many climbers stop just below the very top to respect it as sacred."},
   {id:"nanga",     name:"Nanga Parbat",   loc:"Pakistan",           summit:8126, climb:3926, route:"Diamir Base Camp → Kinshofer", geo:"Its Rupal Face on the far side rises ~4,600 m in one unbroken wall — the tallest mountain face on Earth.", fact:"Nanga Parbat means 'Naked Mountain', and its giant south wall is the tallest single rock-and-ice face in the world."},
   {id:"aconcagua", name:"Aconcagua",      loc:"Argentina",          summit:6961, climb:4011, route:"Horcones gate → Normal Route", geo:"", fact:"The highest mountain outside Asia — yet you can reach the top by walking, without ropes."},
