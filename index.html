@@ -637,12 +637,8 @@ function loadLeaflet(){
   });
   return leafletPromise;
 }
-function prefersDark(){ return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches; }
-function tileUrl(){
-  return prefersDark()
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-}
+// OpenTopoMap: keyless topographic tiles — shows the terrain, ideal for mountains
+function tileUrl(){ return 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'; }
 function cssVar(name, fallback){
   const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
@@ -652,14 +648,11 @@ async function ensureMap(){
   try{ await loadLeaflet(); }
   catch(e){ note.textContent='Could not load the map — check your internet connection and try again.'; return; }
   if(!map){
-    map = L.map('map', {worldCopyJump:true, scrollWheelZoom:false, minZoom:1, maxZoom:11}).setView([25,20], 1);
-    tileLayer = L.tileLayer(tileUrl(), {subdomains:'abcd', maxZoom:11,
-      attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+    map = L.map('map', {worldCopyJump:true, scrollWheelZoom:false, minZoom:1, maxZoom:13}).setView([25,20], 1);
+    tileLayer = L.tileLayer(tileUrl(), {subdomains:'abc', maxZoom:15,
+      attribution:'&copy; OpenStreetMap contributors, SRTM | &copy; OpenTopoMap (CC-BY-SA)'}).addTo(map);
     map.on('focus', ()=>map.scrollWheelZoom.enable());
     map.on('blur', ()=>map.scrollWheelZoom.disable());
-    const mq = window.matchMedia && matchMedia('(prefers-color-scheme: dark)');
-    if(mq){ const onTheme=()=>{ if(tileLayer) tileLayer.setUrl(tileUrl()); };
-      if(mq.addEventListener) mq.addEventListener('change', onTheme); else if(mq.addListener) mq.addListener(onTheme); }
   }
   renderMarkers();
   setTimeout(()=>map.invalidateSize(), 60);
