@@ -102,6 +102,11 @@
   header.mini .brand{font-family:"Zilla Slab",serif;font-weight:700;font-size:22px;letter-spacing:-.01em}
   header.mini .brand .dot{color:var(--climb)}
   header.mini .tag{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+  header.mini .ver{margin-left:auto;align-self:center;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:var(--ink-faint);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  header.mini .refresh{align-self:center;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;padding:0;box-shadow:var(--shadow-soft)}
+  header.mini .refresh:hover{color:var(--ink);border-color:var(--climb)}
+  header.mini .refresh svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  header.mini .refresh:active svg{transform:rotate(180deg);transition:transform .3s}
   header{padding:26px 0 8px}
   .eyebrow{
     font-family:"IBM Plex Mono",monospace;
@@ -264,6 +269,10 @@
   <header class="mini">
     <span class="brand">Two Heights<span class="dot">.</span></span>
     <span class="tag">summit vs. the climb</span>
+    <span class="ver" id="verTag"></span>
+    <button class="refresh" id="refreshBtn" type="button" aria-label="Reload to the latest version" title="Reload to the latest version">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
   </header>
 
   <div class="stage">
@@ -709,6 +718,17 @@ document.querySelectorAll('.seg [data-unit]').forEach(x=>x.setAttribute("aria-pr
 
 let rt;
 window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawChart,120);});
+
+/* ---------------- VERSION + REFRESH ---------------- */
+const VERSION = "v8";
+(function(){
+  const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
+  const b=document.getElementById('refreshBtn');
+  if(b) b.addEventListener('click', ()=>{
+    // reload from the server with a fresh URL so a cached page can't be reused
+    location.replace(location.pathname + '?r=' + Date.now());
+  });
+})();
 
 renderList();
 drawChart();
