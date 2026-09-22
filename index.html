@@ -91,6 +91,16 @@
     -webkit-font-smoothing:antialiased;
   }
   .wrap{max-width:520px;margin:0 auto;padding:0 16px 64px}
+  .stage{display:flex;flex-direction:column}
+  /* Tablet / desktop: two panes — chart stays in view, list scrolls beside it */
+  @media (min-width:760px){
+    .wrap{max-width:1080px;padding:0 24px 72px}
+    .stage{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:6px}
+    .chart-card{position:sticky;top:16px;margin-top:0}
+    .panel{min-width:0}
+    .panel .controls{margin-top:0}
+    footer{margin-top:20px}
+  }
 
   /* ---- header ---- */
   header.mini{padding:18px 0 10px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -255,6 +265,7 @@
     <span class="tag">summit vs. the climb</span>
   </header>
 
+  <div class="stage">
   <section class="chart-card" aria-label="Elevation profile comparison">
     <div class="chart-head">
       <div class="chart-title">Elevation profile</div>
@@ -269,6 +280,7 @@
     <p class="insight" id="insight"></p>
   </section>
 
+  <div class="panel">
   <div class="controls">
     <div class="sort-label">Sort the mountains by</div>
     <div class="seg" role="group" aria-label="Sort by">
@@ -283,6 +295,8 @@
   </div>
 
   <div class="list" id="list"></div>
+  </div>
+  </div>
 
   <footer>
     <p class="note">"Climb" is the summit height minus where the standard hiking or climbing route starts (sourced, but routes vary, so treat as close estimates). A few mountains rise far more from their true base — tap a row to see that. Toggle any mountain to add it to the chart.</p>
@@ -350,7 +364,7 @@ function niceStep(raw){
 function drawChart(){
   const host=document.getElementById("chartHost");
   host.innerHTML="";
-  const W = Math.max(300, Math.min(host.clientWidth||480, 488));
+  const W = Math.max(300, Math.min(host.clientWidth||480, 560));
   const H = 372;
   const mL=44, mR=12, mT=26, mB=52;
   const plotW=W-mL-mR, plotH=H-mT-mB;
