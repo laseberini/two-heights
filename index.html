@@ -146,6 +146,8 @@
   }
   .viewtabs{display:inline-flex;margin:4px 0 14px}
   #map{height:min(58vh,440px);width:100%;background:var(--card-2)}
+  .pin{background:none;border:0}
+  .pin svg{display:block;filter:drop-shadow(0 1.5px 1.5px rgba(0,0,0,.45))}
   .leaflet-container{font-family:"IBM Plex Sans",sans-serif}
   .leaflet-popup-content{font-family:"IBM Plex Sans",sans-serif;font-size:12.5px;line-height:1.5;margin:9px 12px}
   .leaflet-popup-content b{font-family:"Zilla Slab",serif;font-size:14px}
@@ -666,6 +668,16 @@ async function ensureMap(){
   renderMarkers();
   setTimeout(()=>map.invalidateSize(), 60);
 }
+function pinIcon(on){
+  const fill = on ? cssVar('--climb','#C05A26') : '#5B6B72';
+  const html =
+    '<svg width="26" height="34" viewBox="0 0 26 34" xmlns="http://www.w3.org/2000/svg">'+
+      '<path d="M13 1.2C6.5 1.2 1.2 6.5 1.2 13c0 8.3 11.8 19.8 11.8 19.8S24.8 21.3 24.8 13C24.8 6.5 19.5 1.2 13 1.2z" '+
+        'fill="'+fill+'" stroke="#ffffff" stroke-width="2.4"/>'+
+      '<circle cx="13" cy="13" r="4.2" fill="#ffffff"/>'+
+    '</svg>';
+  return L.divIcon({html, className:'pin', iconSize:[26,34], iconAnchor:[13,33], popupAnchor:[0,-30], tooltipAnchor:[0,-30]});
+}
 function renderMarkers(){
   if(!map) return;
   mapMarkers.forEach(mk=>map.removeLayer(mk)); mapMarkers=[];
@@ -674,15 +686,9 @@ function renderMarkers(){
   const u=unitLbl(), pts=[];
   shown.forEach(m=>{
     const on = state.sel.has(m.id);
-    const mk = L.circleMarker([m.lat,m.lng], {
-      radius: 5 + (m.summit/8849)*7,
-      color: on ? '#ffffff' : 'rgba(255,255,255,.55)',
-      weight: on ? 2 : 1,
-      fillColor: on ? cssVar('--climb','#C05A26') : cssVar('--rock','#93A2A8'),
-      fillOpacity: on ? 0.95 : 0.65
-    }).addTo(map);
+    const mk = L.marker([m.lat,m.lng], {icon:pinIcon(on), opacity: on?1:0.85, riseOnHover:true}).addTo(map);
     mk.bindPopup(`<b>${m.name}</b><br>${m.loc}<br>Summit ${fmt(m.summit)} ${u} &middot; Climb ${fmt(m.climb)} ${u}`);
-    mk.bindTooltip(m.name, {direction:'top', offset:[0,-4]});
+    mk.bindTooltip(m.name, {direction:'top'});
     mapMarkers.push(mk); pts.push([m.lat,m.lng]);
   });
   const note=document.getElementById('mapNote');
@@ -720,7 +726,7 @@ let rt;
 window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawChart,120);});
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v8";
+const VERSION = "v9";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
