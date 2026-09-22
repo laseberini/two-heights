@@ -31,6 +31,10 @@
     --sea-line:rgba(28,122,140,.55);
     --climb:#C05A26;
     --climb-tint:rgba(192,90,38,.14);
+    --good:#2F7D5B;
+    --good-bg:rgba(47,125,91,.13);
+    --bad:#C0392B;
+    --bad-bg:rgba(192,57,43,.10);
     --rock:#93A2A8;
     --rock-soft:#B4BFC3;
     --snow:#FCFEFF;
@@ -52,6 +56,10 @@
       --sea-line:rgba(70,170,189,.6);
       --climb:#E08A50;
       --climb-tint:rgba(224,138,80,.16);
+      --good:#4CC38A;
+      --good-bg:rgba(76,195,138,.15);
+      --bad:#F0776A;
+      --bad-bg:rgba(240,119,106,.14);
       --rock:#5F7178;
       --rock-soft:#455760;
       --snow:#EAF3F5;
@@ -146,6 +154,36 @@
   }
   .viewtabs{display:inline-flex;margin:4px 0 14px}
   #map{height:min(58vh,440px);width:100%;background:var(--card-2)}
+  .maphead{flex-wrap:wrap;gap:8px}
+  .mapctl{display:inline-flex;align-items:center;gap:8px}
+  .labeltoggle{font-family:"IBM Plex Sans",sans-serif;font-size:12.5px;font-weight:500;color:var(--ink-soft);background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;cursor:pointer;box-shadow:var(--shadow-soft)}
+  .labeltoggle[aria-pressed="true"]{color:var(--ink);border-color:var(--climb)}
+  .labeltoggle[aria-pressed="false"]{opacity:.7}
+  #mapCard.labels-off .leaflet-tooltip.pinlabel{display:none!important}
+  /* quiz */
+  .quiz-body{padding:16px 16px 18px}
+  .quiz-pic{width:100%;height:170px;object-fit:cover;border-radius:11px;display:block;margin:0 0 14px;background:var(--card-2);border:1px solid var(--line-soft)}
+  .quiz-q{font-family:"Zilla Slab",serif;font-weight:600;font-size:19px;line-height:1.32;margin:0 0 15px;text-wrap:balance}
+  .quiz-opts{display:flex;flex-direction:column;gap:9px}
+  .quiz-opt{display:flex;align-items:center;gap:11px;width:100%;text-align:left;font-family:"IBM Plex Sans",sans-serif;font-size:15px;color:var(--ink);background:var(--card-2);border:1.5px solid var(--line);border-radius:11px;padding:12px 13px;cursor:pointer;transition:border-color .12s,background .12s}
+  .quiz-opt:hover:not(:disabled){border-color:var(--climb)}
+  .quiz-opt .letter{flex:0 0 auto;width:24px;height:24px;border-radius:6px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--ink-soft)}
+  .quiz-opt.correct{background:var(--good-bg);border-color:var(--good)}
+  .quiz-opt.correct .letter{background:var(--good);border-color:var(--good);color:#fff}
+  .quiz-opt.wrong{background:var(--bad-bg);border-color:var(--bad)}
+  .quiz-opt.wrong .letter{background:var(--bad);border-color:var(--bad);color:#fff}
+  .quiz-opt:disabled{cursor:default}
+  .quiz-feedback{margin-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.55}
+  .quiz-feedback .verdict{font-weight:700}
+  .quiz-feedback .verdict.ok{color:var(--good)}
+  .quiz-feedback .verdict.no{color:var(--bad)}
+  .quiz-next{margin-top:15px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Sans",sans-serif;font-size:14px;font-weight:600;color:#fff;background:var(--climb);border:0;border-radius:10px;padding:12px 18px;cursor:pointer;width:100%}
+  .quiz-next:hover{filter:brightness(1.06)}
+  .quiz-progress{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);letter-spacing:.04em}
+  .quiz-result{text-align:center;padding:24px 10px 6px}
+  .quiz-score{font-family:"Zilla Slab",serif;font-weight:700;font-size:46px;color:var(--climb);line-height:1}
+  .quiz-score span{color:var(--ink-faint);font-size:24px}
+  .quiz-msg{font-size:15px;color:var(--ink-soft);margin:10px 0 20px;text-wrap:balance}
   .pin{background:none;border:0}
   .pin svg{display:block;filter:drop-shadow(0 1.5px 1.5px rgba(0,0,0,.45))}
   .leaflet-tooltip.pinlabel{background:rgba(18,28,33,.9);color:#fff;border:0;border-radius:6px;
@@ -291,6 +329,7 @@
   <div class="seg viewtabs" role="group" aria-label="Choose view">
     <button data-view="chart" aria-pressed="true">Chart</button>
     <button data-view="map" aria-pressed="false">Map</button>
+    <button data-view="quiz" aria-pressed="false">Quiz</button>
   </div>
   <section class="chart-card" id="chartCard" aria-label="Elevation profile comparison">
     <div class="chart-head">
@@ -307,15 +346,26 @@
   </section>
 
   <section class="chart-card map-card" id="mapCard" aria-label="Map of the mountains" hidden>
-    <div class="chart-head">
+    <div class="chart-head maphead">
       <div class="chart-title">Where they are</div>
-      <div class="seg mapshow" role="group" aria-label="Which mountains to show">
-        <button data-show="selected" aria-pressed="true">Selected</button>
-        <button data-show="all" aria-pressed="false">All</button>
+      <div class="mapctl">
+        <button class="labeltoggle" id="labelToggle" type="button" aria-pressed="true" title="Show or hide the name labels">Labels</button>
+        <div class="seg mapshow" role="group" aria-label="Which mountains to show">
+          <button data-show="selected" aria-pressed="true">Selected</button>
+          <button data-show="all" aria-pressed="false">All</button>
+        </div>
       </div>
     </div>
     <div id="map"></div>
     <p class="insight" id="mapNote">Tap a pin to see a mountain's heights.</p>
+  </section>
+
+  <section class="chart-card quiz-card" id="quizCard" aria-label="Mountain quiz" hidden>
+    <div class="chart-head">
+      <div class="chart-title">Mountain quiz</div>
+      <div class="quiz-progress" id="quizProgress"></div>
+    </div>
+    <div class="quiz-body" id="quizBody"></div>
   </section>
 
   <div class="panel">
@@ -383,6 +433,7 @@ let state = {
   open:null,
   view:"chart",
   mapShow:"selected",
+  mapLabels:true,
 };
 const SEL_VERSION=3;
 try{
@@ -722,7 +773,10 @@ function setView(v){
   document.querySelectorAll('.viewtabs [data-view]').forEach(x=>x.setAttribute('aria-pressed', x.dataset.view===v));
   document.getElementById('chartCard').hidden = v!=='chart';
   document.getElementById('mapCard').hidden = v!=='map';
+  document.getElementById('quizCard').hidden = v!=='quiz';
+  document.querySelector('.panel').hidden = v==='quiz';
   if(v==='map') ensureMap();
+  if(v==='quiz' && !quiz.order.length) startQuiz();
 }
 document.querySelectorAll('.viewtabs [data-view]').forEach(b=>{
   b.addEventListener('click', ()=>setView(b.dataset.view));
@@ -734,6 +788,16 @@ document.querySelectorAll('.mapshow [data-show]').forEach(b=>{
     renderMarkers();
   });
 });
+// Labels on/off — pure CSS class toggle, so the map's zoom/position never changes
+(function(){
+  const lt=document.getElementById('labelToggle');
+  if(!lt) return;
+  lt.addEventListener('click', ()=>{
+    state.mapLabels=!state.mapLabels;
+    lt.setAttribute('aria-pressed', state.mapLabels);
+    document.getElementById('mapCard').classList.toggle('labels-off', !state.mapLabels);
+  });
+})();
 
 // init pressed states from stored
 document.querySelectorAll('.seg [data-sort]').forEach(x=>x.setAttribute("aria-pressed", x.dataset.sort===state.sort));
@@ -742,8 +806,101 @@ document.querySelectorAll('.seg [data-unit]').forEach(x=>x.setAttribute("aria-pr
 let rt;
 window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawChart,120);});
 
+/* ---------------- QUIZ ---------------- */
+const QUIZ = [
+  // "Which mountain is this?" — image is the question (only the most recognisable peaks)
+  {kind:'id', pic:'matterhorn', a:'Matterhorn', options:['Mont Blanc','The Eiger','Denali'], why:"The Matterhorn's steep pyramid above Zermatt is one of the most recognisable mountains on Earth."},
+  {kind:'id', pic:'fuji', a:'Mount Fuji', options:['Mount Rainier','Kilimanjaro','Chimborazo'], why:"Mount Fuji is Japan's tallest peak — a near-perfect volcanic cone."},
+  {kind:'id', pic:'table', a:'Table Mountain', options:['Drakensberg','Ben Nevis','Mont Blanc'], why:"Table Mountain's flat top rises straight above Cape Town."},
+  {kind:'id', pic:'kili', a:'Kilimanjaro', options:['Mount Kenya','Aconcagua','Denali'], why:"Kilimanjaro is Africa's highest mountain — a freestanding volcano on the plains of Tanzania."},
+  // fact questions, each shown with the relevant mountain's photo
+  {pic:'everest', q:"Which is the highest mountain above sea level?", a:'Mount Everest', options:['K2','Kangchenjunga','Kilimanjaro'], why:"Everest's summit reaches 8,849 m above sea level."},
+  {pic:'everest', q:"Who first reached the summit of Everest, in 1953?", a:'Edmund Hillary & Tenzing Norgay', options:['Reinhold Messner & Peter Habeler','George Mallory & Andrew Irvine','Chris Bonington & Doug Scott'], why:"Edmund Hillary of New Zealand and Tenzing Norgay of Nepal made the first confirmed ascent."},
+  {pic:'everest', q:"Which climber famously disappeared near Everest's summit in 1924?", a:'George Mallory', options:['Edmund Hillary','Reinhold Messner','Tenzing Norgay'], why:"Mallory and Andrew Irvine vanished high on Everest in 1924 — it's still unknown if they reached the top."},
+  {pic:'k2', q:"What is K2's nickname?", a:'The Savage Mountain', options:['The Killer Mountain','The White Mountain','The Naked Mountain'], why:"K2 is called the Savage Mountain because it is so steep, stormy and dangerous."},
+  {pic:'k2', q:"K2 is the world's ... highest mountain.", a:'Second', options:['Third','Fourth','Fifth'], why:"K2 (8,611 m) is second only to Everest."},
+  {pic:'k2', q:"In which mountain range is K2?", a:'The Karakoram', options:['The Himalayas','The Hindu Kush','The Andes'], why:"K2 is the highest peak of the Karakoram range."},
+  {pic:'kili', q:"Which is the highest mountain in Africa?", a:'Kilimanjaro', options:['Mount Kenya','Mount Meru','Drakensberg'], why:"Kilimanjaro rises to 5,895 m in Tanzania."},
+  {pic:'kili', q:"What type of mountain is Kilimanjaro?", a:'A volcano', options:['A fold mountain','A block mountain','A sea stack'], why:"Kilimanjaro is a huge freestanding volcano."},
+  {pic:'maunakea', q:"Measured from its base on the sea floor, which is the tallest mountain on Earth?", a:'Mauna Kea', options:['Everest','Denali','Chimborazo'], why:"Mauna Kea rises about 10,200 m from the ocean floor — taller than Everest base-to-peak."},
+  {pic:'chimborazo', q:"Whose summit is the farthest point from the centre of the Earth?", a:'Chimborazo', options:['Everest','Aconcagua','K2'], why:"Earth's equatorial bulge makes Chimborazo's summit the farthest from the planet's centre."},
+  {pic:'montblanc', q:"Which is the highest mountain in the Alps?", a:'Mont Blanc', options:['Matterhorn','Monte Rosa','The Eiger'], why:"Mont Blanc reaches 4,808 m, the highest in the Alps and western Europe."},
+  {pic:'matterhorn', q:"The Matterhorn sits on the border of Switzerland and which country?", a:'Italy', options:['France','Austria','Germany'], why:"The Matterhorn stands on the Swiss–Italian border above Zermatt."},
+  {pic:'denali', q:"Which is the highest mountain in North America?", a:'Denali', options:['Mount Rainier','Mount Logan','Pico de Orizaba'], why:"Denali (6,190 m) in Alaska is North America's highest peak."},
+  {pic:'denali', q:"What does the name 'Denali' mean?", a:'The Tall One', options:['The White Mountain','The Great Spirit','The Cold Peak'], why:"'Denali' means 'the tall one' in the local Koyukon language."},
+  {pic:'aconcagua', q:"Which is the highest mountain in South America?", a:'Aconcagua', options:['Chimborazo','Huascarán','Ojos del Salado'], why:"Aconcagua (6,961 m) in Argentina is the highest peak outside Asia."},
+  {pic:'fuji', q:"Mount Fuji is the highest mountain in which country?", a:'Japan', options:['China','South Korea','Nepal'], why:"Fuji (3,776 m) is Japan's tallest mountain and a famous volcano."},
+  {pic:'kangch', q:"Which is the world's third-highest mountain?", a:'Kangchenjunga', options:['Lhotse','K2','Makalu'], why:"Kangchenjunga is 8,586 m, on the Nepal–India border."},
+  {pic:'lhotse', q:"Lhotse, the fourth-highest peak, is joined by a high ridge to which mountain?", a:'Everest', options:['K2','Makalu','Cho Oyu'], why:"Lhotse sits right beside Everest and shares much of its climbing route."},
+  {pic:'nanga', q:"Which peak's nickname is the 'Killer Mountain'?", a:'Nanga Parbat', options:['K2','Everest','Denali'], why:"Nanga Parbat earned the name for the many climbers lost on its slopes."},
+  {pic:'nanga', q:"The Rupal Face, one of the tallest mountain walls on Earth, belongs to which peak?", a:'Nanga Parbat', options:['K2','Everest','The Eiger'], why:"Nanga Parbat's Rupal Face rises about 4,600 m in one sweep."},
+  {pic:'everest', q:"Messner and Habeler achieved which Everest first in 1978?", a:'The first ascent without bottled oxygen', options:['The first winter ascent','The first solo ascent','The first ascent by a woman'], why:"In 1978 they proved Everest could be climbed without extra oxygen."},
+  {pic:'everest', q:"Who was the first woman to reach the summit of Everest, in 1975?", a:'Junko Tabei', options:['Wanda Rutkiewicz','Gerlinde Kaltenbrunner','Lynn Hill'], why:"Junko Tabei of Japan became the first woman atop Everest in 1975."},
+  {pic:'bennevis', q:"What is the highest mountain in the British Isles?", a:'Ben Nevis', options:['Snowdon','Scafell Pike','Slieve Donard'], why:"Ben Nevis (1,345 m) in Scotland is Britain's highest."},
+  {pic:'rainier', q:"Mount Rainier carries more glaciers than any peak in which region?", a:'The lower 48 US states', options:['The Alps','The Andes','Scandinavia'], why:"Rainier has about 25 glaciers — the most of any mountain in the contiguous USA."},
+  {pic:'everest', q:"The high-altitude 'Death Zone' begins at roughly what height?", a:'8,000 m', options:['5,000 m','6,500 m','9,500 m'], why:"Above about 8,000 m there is too little oxygen for the body to survive for long."},
+  {pic:'kangch', q:"How many mountains rise above 8,000 m (the 'eight-thousanders')?", a:'14', options:['8','10','20'], why:"There are 14 peaks above 8,000 m, all in the Himalaya and Karakoram."},
+];
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const QUIZ_N = 10;
+let quiz = { order:[], idx:0, score:0, answered:false, opts:[] };
+function startQuiz(){
+  quiz.order = shuffle(QUIZ).slice(0, QUIZ_N);
+  quiz.idx=0; quiz.score=0; quiz.answered=false;
+  renderQuiz();
+}
+function renderQuiz(){
+  const body=document.getElementById('quizBody');
+  const prog=document.getElementById('quizProgress');
+  if(quiz.idx>=quiz.order.length){ renderQuizResult(); return; }
+  const item=quiz.order[quiz.idx];
+  quiz.answered=false;
+  quiz.opts = shuffle([{t:item.a,correct:true}, ...item.options.map(o=>({t:o,correct:false}))]);
+  prog.textContent = `Q${quiz.idx+1}/${quiz.order.length} · Score ${quiz.score}`;
+  const letters=['A','B','C','D'];
+  const qtext = item.kind==='id' ? 'Which mountain is this?' : item.q;
+  body.innerHTML =
+    `<img class="quiz-pic" src="photos/${item.pic}.jpg" alt="mountain photo" onerror="this.style.display='none'">`+
+    `<p class="quiz-q">${qtext}</p>`+
+    `<div class="quiz-opts">`+
+      quiz.opts.map((o,i)=>`<button class="quiz-opt" data-i="${i}"><span class="letter">${letters[i]}</span><span>${o.t}</span></button>`).join('')+
+    `</div>`+
+    `<div class="quiz-feedback" id="quizFeedback" hidden></div>`;
+  body.querySelectorAll('.quiz-opt').forEach(b=> b.addEventListener('click', ()=>answerQuiz(parseInt(b.dataset.i,10))));
+  body.scrollIntoView({block:'nearest'});
+}
+function answerQuiz(i){
+  if(quiz.answered) return; quiz.answered=true;
+  const item=quiz.order[quiz.idx];
+  const btns=[...document.querySelectorAll('.quiz-opt')];
+  const chosen=quiz.opts[i];
+  btns.forEach((b,j)=>{ b.disabled=true; if(quiz.opts[j].correct) b.classList.add('correct'); });
+  if(chosen.correct) quiz.score++; else btns[i].classList.add('wrong');
+  const fb=document.getElementById('quizFeedback');
+  fb.hidden=false;
+  const last = quiz.idx+1>=quiz.order.length;
+  fb.innerHTML =
+    `<span class="verdict ${chosen.correct?'ok':'no'}">${chosen.correct?'Correct!':'Not quite.'}</span> ${item.why}`+
+    `<button class="quiz-next" id="quizNext">${last?'See results':'Next question'}</button>`;
+  document.getElementById('quizProgress').textContent = `Q${quiz.idx+1}/${quiz.order.length} · Score ${quiz.score}`;
+  document.getElementById('quizNext').addEventListener('click', ()=>{ quiz.idx++; renderQuiz(); });
+}
+function renderQuizResult(){
+  const body=document.getElementById('quizBody');
+  document.getElementById('quizProgress').textContent='Done';
+  const s=quiz.score, n=quiz.order.length, pct=s/n;
+  const msg = pct===1?'Perfect — a true mountaineer!' : pct>=0.7?'Great climbing!' : pct>=0.4?'Nice effort — keep exploring!' : 'Base camp reached — try again!';
+  body.innerHTML =
+    `<div class="quiz-result">`+
+      `<div class="quiz-score">${s}<span>/${n}</span></div>`+
+      `<p class="quiz-msg">${msg}</p>`+
+      `<button class="quiz-next" id="quizAgain">Play again</button>`+
+    `</div>`;
+  document.getElementById('quizAgain').addEventListener('click', startQuiz);
+}
+
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v12";
+const VERSION = "v13";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
