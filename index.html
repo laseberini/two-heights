@@ -159,6 +159,7 @@
   .labeltoggle{font-family:"IBM Plex Sans",sans-serif;font-size:12.5px;font-weight:500;color:var(--ink-soft);background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;cursor:pointer;box-shadow:var(--shadow-soft)}
   .labeltoggle[aria-pressed="true"]{color:var(--ink);border-color:var(--climb)}
   .labeltoggle[aria-pressed="false"]{opacity:.7}
+  #mapCard.labels-off .leaflet-marker-pane,
   #mapCard.labels-off .leaflet-tooltip.pinlabel{display:none!important}
   /* quiz */
   .quiz-body{padding:16px 16px 18px}
@@ -361,9 +362,15 @@
   </section>
 
   <section class="chart-card quiz-card" id="quizCard" aria-label="Mountain quiz" hidden>
-    <div class="chart-head">
+    <div class="chart-head maphead">
       <div class="chart-title">Mountain quiz</div>
-      <div class="quiz-progress" id="quizProgress"></div>
+      <div class="mapctl">
+        <div class="seg quizmode" role="group" aria-label="Quiz topic">
+          <button data-mode="general" aria-pressed="true">General</button>
+          <button data-mode="everest" aria-pressed="false">Everest</button>
+        </div>
+        <span class="quiz-progress" id="quizProgress"></span>
+      </div>
     </div>
     <div class="quiz-body" id="quizBody"></div>
   </section>
@@ -434,6 +441,7 @@ let state = {
   view:"chart",
   mapShow:"selected",
   mapLabels:true,
+  quizMode:"general",
 };
 const SEL_VERSION=3;
 try{
@@ -798,6 +806,14 @@ document.querySelectorAll('.mapshow [data-show]').forEach(b=>{
     document.getElementById('mapCard').classList.toggle('labels-off', !state.mapLabels);
   });
 })();
+// Quiz topic: General vs Everest — switching starts a fresh round from that pool
+document.querySelectorAll('.quizmode [data-mode]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    state.quizMode=b.dataset.mode;
+    document.querySelectorAll('.quizmode [data-mode]').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    startQuiz();
+  });
+});
 
 // init pressed states from stored
 document.querySelectorAll('.seg [data-sort]').forEach(x=>x.setAttribute("aria-pressed", x.dataset.sort===state.sort));
@@ -807,7 +823,7 @@ let rt;
 window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawChart,120);});
 
 /* ---------------- QUIZ ---------------- */
-const QUIZ = [
+const QUIZ_GENERAL = [
   // "Which mountain is this?" — image is the question (only the most recognisable peaks)
   {kind:'id', pic:'matterhorn', a:'Matterhorn', options:['Mont Blanc','The Eiger','Denali'], why:"The Matterhorn's steep pyramid above Zermatt is one of the most recognisable mountains on Earth."},
   {kind:'id', pic:'fuji', a:'Mount Fuji', options:['Mount Rainier','Kilimanjaro','Chimborazo'], why:"Mount Fuji is Japan's tallest peak — a near-perfect volcanic cone."},
@@ -841,11 +857,45 @@ const QUIZ = [
   {pic:'everest', q:"The high-altitude 'Death Zone' begins at roughly what height?", a:'8,000 m', options:['5,000 m','6,500 m','9,500 m'], why:"Above about 8,000 m there is too little oxygen for the body to survive for long."},
   {pic:'kangch', q:"How many mountains rise above 8,000 m (the 'eight-thousanders')?", a:'14', options:['8','10','20'], why:"There are 14 peaks above 8,000 m, all in the Himalaya and Karakoram."},
 ];
+const QUIZ_EVEREST = [
+  {pic:'everest', q:"How high is Everest's summit above sea level?", a:'8,849 m', options:['8,611 m','8,516 m','9,144 m'], why:"Everest is officially 8,848.86 m — about 8,849 m."},
+  {pic:'everest_kala', q:"In which year was Everest first climbed?", a:'1953', options:['1924','1963','1975'], why:"Edmund Hillary and Tenzing Norgay summited on 29 May 1953."},
+  {pic:'everest', q:"Who made the first confirmed ascent of Everest?", a:'Hillary & Tenzing Norgay', options:['Mallory & Irvine','Messner & Habeler','Hunt & Bourdillon'], why:"New Zealander Edmund Hillary and Sherpa Tenzing Norgay reached the top in 1953."},
+  {pic:'everest_cwm', q:"Tenzing Norgay, first to the summit, was a ...", a:'Sherpa', options:['British army officer','Tibetan lama','Indian scientist'], why:"Tenzing was a Sherpa, from the mountain people of the Nepal Himalaya."},
+  {pic:'everest', q:"What is Everest's Nepali name?", a:'Sagarmatha', options:['Chomolungma','Annapurna','Gauri Shankar'], why:"In Nepali it's Sagarmatha; in Tibetan, Chomolungma."},
+  {pic:'everest_kala', q:"What is Everest's Tibetan name?", a:'Chomolungma', options:['Sagarmatha','Kangchenjunga','Cho Oyu'], why:"Chomolungma means 'Goddess Mother of the World'."},
+  {pic:'everest', q:"Everest is named after George Everest, who was a ...", a:'British surveyor of India', options:['famous mountaineer','king of Nepal','British queen'], why:"It was named after Sir George Everest, a Surveyor-General of India."},
+  {pic:'everest_cwm', q:"Everest sits on the border of Nepal and which country?", a:'China (Tibet)', options:['India','Bhutan','Pakistan'], why:"The summit lies on the Nepal–Tibet (China) border."},
+  {pic:'everest', q:"Which mountain range is Everest part of?", a:'The Himalayas', options:['The Karakoram','The Andes','The Alps'], why:"Everest is the highest peak of the Himalayas."},
+  {pic:'everest_kala', q:"Which climber disappeared near the summit in 1924?", a:'George Mallory', options:['Edmund Hillary','Reinhold Messner','Tenzing Norgay'], why:"Mallory and Andrew Irvine vanished high on Everest in 1924."},
+  {pic:'everest', q:"George Mallory said he wanted to climb Everest 'because it's ___.'", a:'there', options:['mine','the highest','calling me'], why:"'Because it's there' is one of mountaineering's most famous lines."},
+  {pic:'everest_khumbu', q:"The dangerous shifting maze of ice early on the Nepal route is the ...", a:'Khumbu Icefall', options:['Rupal Face','Western Wall','Death Couloir'], why:"The Khumbu Icefall is a moving jumble of giant ice blocks and crevasses."},
+  {pic:'everest', q:"The 'Hillary Step', a rock step near the top, is named after ...", a:'Edmund Hillary', options:['a Sherpa guide','George Mallory','a British queen'], why:"It's named for Sir Edmund Hillary; it changed shape after the 2015 earthquake."},
+  {pic:'everest_cwm', q:"Who made the first ascent of Everest without bottled oxygen, in 1978?", a:'Messner & Habeler', options:['Hillary & Tenzing','Mallory & Irvine','two Sherpas'], why:"Reinhold Messner and Peter Habeler climbed it using no supplemental oxygen."},
+  {pic:'everest_kala', q:"Who was the first woman to summit Everest, in 1975?", a:'Junko Tabei', options:['Wanda Rutkiewicz','Gerlinde Kaltenbrunner','Lynn Hill'], why:"Junko Tabei of Japan was the first woman to reach the top."},
+  {pic:'everest', q:"Junko Tabei came from which country?", a:'Japan', options:['China','Nepal','South Korea'], why:"She was a Japanese mountaineer and the first woman atop Everest."},
+  {pic:'everest_khumbu', q:"The 'Death Zone' on Everest is above roughly ...", a:'8,000 m', options:['6,000 m','7,000 m','8,500 m'], why:"Above ~8,000 m there is too little oxygen to survive for long."},
+  {pic:'everest_bc', q:"Everest's South Base Camp sits at about ...", a:'5,364 m', options:['3,500 m','6,500 m','7,000 m'], why:"The Nepal-side Base Camp is around 5,364 m."},
+  {pic:'everest_cwm', q:"The last camp before the summit, on the South Col (~7,900 m), is Camp ...", a:'IV (four)', options:['I','II','VI'], why:"Camp IV on the South Col is the launch point for summit day."},
+  {pic:'everest', q:"What do most climbers breathe from bottles high on Everest?", a:'Oxygen', options:['Helium','Nitrogen','Hydrogen'], why:"Bottled oxygen helps climbers survive the thin air up high."},
+  {pic:'everest_kala', q:"When do most Everest summits happen?", a:'Spring (May), before the monsoon', options:['Deep winter','Summer monsoon','Only in autumn'], why:"A short calm window in May is the main climbing season."},
+  {pic:'everest', q:"Kami Rita Sherpa holds the Everest record for ...", a:'the most summits', options:['the fastest descent','the youngest ascent','the first ski down'], why:"Kami Rita Sherpa has reached the summit more times than anyone."},
+  {pic:'everest_cwm', q:"Everest still grows a few millimetres a year because ...", a:'tectonic plates keep pushing it up', options:['snow keeps piling up','the sea is rising','it actually shrinks'], why:"The India–Asia plate collision keeps lifting the whole Himalaya."},
+  {pic:'everest', q:"A fun factoid: the rock at Everest's very summit is ...", a:'marine limestone from an ancient seabed', options:['volcanic lava','solid granite','iron ore'], why:"Everest's summit rock formed on an ocean floor long ago."},
+  {pic:'everest_bc', q:"About how long does a full Everest expedition usually take?", a:'Around two months', options:['Three days','One week','Six months'], why:"Climbers spend weeks trekking in and acclimatising before a summit push."},
+  {pic:'everest_kala', q:"The plume of blowing snow often streaming off Everest's summit is a ...", a:'banner cloud', options:['volcanic ash cloud','rain shower','rainbow'], why:"Fierce winds blow snow off the peak into a banner-like cloud."},
+  {pic:'everest', q:"Jon Krakauer's book about the deadly 1996 season on Everest is called ...", a:'Into Thin Air', options:['Touching the Void','Into the Wild','The Climb'], why:"'Into Thin Air' recounts the 1996 Everest disaster."},
+  {pic:'everest_khumbu', q:"Temperatures near Everest's summit can fall to about ...", a:'-40°C or colder', options:['-5°C','0°C','-15°C'], why:"With wind chill it can feel far colder still."},
+  {pic:'everest_cwm', q:"The first winter ascent of Everest (1980) was made by climbers from ...", a:'Poland', options:['Nepal','Japan','the USA'], why:"Poles Krzysztof Wielicki and Leszek Cichy summited in February 1980."},
+  {pic:'everest_kala', q:"Roughly how many people have now reached Everest's summit?", a:'Over 6,000', options:['About 200','About 900','Over 50,000'], why:"More than 6,000 people have summited — many of them more than once."},
+];
+const POOLS = { general: QUIZ_GENERAL, everest: QUIZ_EVEREST };
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 const QUIZ_N = 10;
 let quiz = { order:[], idx:0, score:0, answered:false, opts:[] };
 function startQuiz(){
-  quiz.order = shuffle(QUIZ).slice(0, QUIZ_N);
+  const pool = POOLS[state.quizMode] || QUIZ_GENERAL;
+  quiz.order = shuffle(pool).slice(0, QUIZ_N);
   quiz.idx=0; quiz.score=0; quiz.answered=false;
   renderQuiz();
 }
@@ -900,7 +950,7 @@ function renderQuizResult(){
 }
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v13";
+const VERSION = "v14";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
