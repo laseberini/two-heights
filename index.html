@@ -303,7 +303,13 @@
   }
   .row.open .detail{max-height:260px;border-top-color:var(--line-soft)}
   .detail-in{padding:12px 13px 14px 13px}
-  .detail-photo{width:100%;height:158px;object-fit:cover;border-radius:10px;display:block;margin:0 0 11px;background:var(--card-2);border:1px solid var(--line-soft)}
+  .detail-photo{width:100%;height:158px;object-fit:cover;border-radius:10px;display:block;margin:0 0 11px;background:var(--card-2);border:1px solid var(--line-soft);cursor:zoom-in}
+  .mpop img{cursor:zoom-in}
+  .lightbox{position:fixed;inset:0;z-index:2000;background:rgba(8,12,15,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;cursor:zoom-out;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .lightbox img{max-width:min(96vw,1000px);max-height:80vh;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.55)}
+  .lb-cap{color:#fff;font-family:"Zilla Slab",serif;font-size:18px;font-weight:600;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  .lb-close{position:absolute;top:16px;right:18px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font-size:26px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .lb-close:hover{background:rgba(255,255,255,.28)}
   .fact{font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 10px}
   .statline{
     display:flex;align-items:flex-start;gap:9px;padding:9px 11px;margin-top:8px;
@@ -427,6 +433,12 @@
     <p class="note">"Climb" is the summit height minus where the standard hiking or climbing route starts (sourced, but routes vary, so treat as close estimates). A few mountains rise far more from their true base — tap a row to see that. Toggle any mountain to add it to the chart.</p>
     <p class="note">Mountain photos from Wikimedia Commons.</p>
   </footer>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lb-close" id="lightboxClose" type="button" aria-label="Close">&times;</button>
+  <img id="lightboxImg" alt="">
+  <div class="lb-cap" id="lightboxCap"></div>
 </div>
 
 <script>
@@ -1094,8 +1106,23 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
   });
 })();
 
+/* ---------------- LIGHTBOX (tap a photo to enlarge) ---------------- */
+(function(){
+  const lb=document.getElementById('lightbox'), lbi=document.getElementById('lightboxImg'),
+        lbc=document.getElementById('lightboxCap'), lbx=document.getElementById('lightboxClose');
+  function openLB(src,cap){ lbi.src=src; lbi.alt=cap||''; lbc.textContent=cap||''; lb.hidden=false; document.body.style.overflow='hidden'; }
+  function closeLB(){ lb.hidden=true; lbi.src=''; document.body.style.overflow=''; }
+  document.addEventListener('click', e=>{
+    const img=e.target.closest('.detail-photo, .mpop img');
+    if(img && img.getAttribute('src')){ e.stopPropagation(); openLB(img.src, img.alt); }
+  });
+  lb.addEventListener('click', closeLB);
+  lbx.addEventListener('click', e=>{ e.stopPropagation(); closeLB(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !lb.hidden) closeLB(); });
+})();
+
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v16";
+const VERSION = "v17";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
