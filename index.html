@@ -136,9 +136,14 @@
 
   /* ---- chart ---- */
   .chart-card{
-    margin-top:22px;background:var(--card);border:1px solid var(--line);
+    margin-top:0;background:var(--card);border:1px solid var(--line);
     border-radius:16px;box-shadow:var(--shadow);overflow:hidden;
   }
+  .viewtabs{display:inline-flex;margin:4px 0 14px}
+  #map{height:min(58vh,440px);width:100%;background:var(--card-2)}
+  .leaflet-container{font-family:"IBM Plex Sans",sans-serif}
+  .leaflet-popup-content{font-family:"IBM Plex Sans",sans-serif;font-size:12.5px;line-height:1.5;margin:9px 12px}
+  .leaflet-popup-content b{font-family:"Zilla Slab",serif;font-size:14px}
   .chart-head{
     display:flex;align-items:baseline;justify-content:space-between;
     padding:15px 16px 4px;gap:10px;
@@ -250,6 +255,7 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
   :focus-visible{outline:2.5px solid var(--climb);outline-offset:2px;border-radius:4px}
   img{max-width:100%}
+  [hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -261,7 +267,11 @@
   </header>
 
   <div class="stage">
-  <section class="chart-card" aria-label="Elevation profile comparison">
+  <div class="seg viewtabs" role="group" aria-label="Choose view">
+    <button data-view="chart" aria-pressed="true">Chart</button>
+    <button data-view="map" aria-pressed="false">Map</button>
+  </div>
+  <section class="chart-card" id="chartCard" aria-label="Elevation profile comparison">
     <div class="chart-head">
       <div class="chart-title">Elevation profile</div>
       <div class="chart-sub" id="chartSub">metres · to scale</div>
@@ -273,6 +283,18 @@
     </div>
     <div id="chartHost"></div>
     <p class="insight" id="insight"></p>
+  </section>
+
+  <section class="chart-card map-card" id="mapCard" aria-label="Map of the mountains" hidden>
+    <div class="chart-head">
+      <div class="chart-title">Where they are</div>
+      <div class="seg mapshow" role="group" aria-label="Which mountains to show">
+        <button data-show="selected" aria-pressed="true">Selected</button>
+        <button data-show="all" aria-pressed="false">All</button>
+      </div>
+    </div>
+    <div id="map"></div>
+    <p class="insight" id="mapNote">Tap a pin to see a mountain's heights.</p>
   </section>
 
   <div class="panel">
@@ -321,7 +343,15 @@ const M = [
   {id:"bennevis",  name:"Ben Nevis",      loc:"Scotland, UK",       summit:1345, climb:1325, route:"Glen Nevis Centre → Mountain Track", geo:"", fact:"Britain's highest mountain — its summit is the collapsed remains of an ancient exploded volcano."},
   {id:"table",     name:"Table Mountain", loc:"Cape Town, RSA",     summit:1086, climb:736,  route:"Tafelberg Rd → Platteklip Gorge", geo:"", fact:"Table Mountain has a flat top like a table, and a cloud called the 'Tablecloth' often pours over its edge."},
 ];
-M.forEach(m=>{ m.base = m.summit - m.climb; });
+const COORDS = {
+  everest:[27.988,86.925], k2:[35.883,76.513], lhotse:[27.962,86.933],
+  kangch:[27.703,88.148], nanga:[35.238,74.589], aconcagua:[-32.653,-70.011],
+  chimborazo:[-1.469,-78.818], denali:[63.069,-151.007], kili:[-3.076,37.353],
+  maunakea:[19.821,-155.468], montblanc:[45.833,6.865], puncak:[-4.078,137.158],
+  rainier:[46.852,-121.760], matterhorn:[45.976,7.659], fuji:[35.361,138.727],
+  drakensberg:[-29.467,29.267], bennevis:[56.797,-5.004], table:[-33.958,18.403]
+};
+M.forEach(m=>{ m.base = m.summit - m.climb; const c=COORDS[m.id]; if(c){ m.lat=c[0]; m.lng=c[1]; } });
 
 const FT = 3.28084;
 let state = {
@@ -329,6 +359,8 @@ let state = {
   sort:"summit",
   sel:new Set(["everest","k2","fuji","matterhorn","montblanc","drakensberg","table"]),
   open:null,
+  view:"chart",
+  mapShow:"selected",
 };
 const SEL_VERSION=3;
 try{
@@ -565,7 +597,7 @@ function bindRows(){
 }
 function toggleSel(id){
   if(state.sel.has(id)) state.sel.delete(id); else state.sel.add(id);
-  save(); renderList(); drawChart(); renderInsight();
+  save(); renderList(); drawChart(); renderInsight(); updateMapIfVisible();
 }
 function openDetail(id){
   state.open = state.open===id?null:id;
@@ -584,7 +616,97 @@ document.querySelectorAll('.seg [data-unit]').forEach(b=>{
   b.addEventListener("click",()=>{
     state.unit=b.dataset.unit; state.units=b.dataset.unit; save();
     document.querySelectorAll('.seg [data-unit]').forEach(x=>x.setAttribute("aria-pressed", x===b));
-    renderList(); drawChart(); renderInsight();
+    renderList(); drawChart(); renderInsight(); updateMapIfVisible();
+  });
+});
+
+/* ---------------- MAP VIEW ---------------- */
+let map=null, tileLayer=null, mapMarkers=[], leafletPromise=null;
+function loadLeaflet(){
+  if(window.L) return Promise.resolve();
+  if(leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((res,rej)=>{
+    const css=document.createElement('link');
+    css.rel='stylesheet';
+    css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(css);
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('map failed to load'));
+    document.head.appendChild(s);
+  });
+  return leafletPromise;
+}
+function prefersDark(){ return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches; }
+function tileUrl(){
+  return prefersDark()
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+}
+function cssVar(name, fallback){
+  const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+async function ensureMap(){
+  const note=document.getElementById('mapNote');
+  try{ await loadLeaflet(); }
+  catch(e){ note.textContent='Could not load the map — check your internet connection and try again.'; return; }
+  if(!map){
+    map = L.map('map', {worldCopyJump:true, scrollWheelZoom:false, minZoom:1, maxZoom:11}).setView([25,20], 1);
+    tileLayer = L.tileLayer(tileUrl(), {subdomains:'abcd', maxZoom:11,
+      attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+    map.on('focus', ()=>map.scrollWheelZoom.enable());
+    map.on('blur', ()=>map.scrollWheelZoom.disable());
+    const mq = window.matchMedia && matchMedia('(prefers-color-scheme: dark)');
+    if(mq){ const onTheme=()=>{ if(tileLayer) tileLayer.setUrl(tileUrl()); };
+      if(mq.addEventListener) mq.addEventListener('change', onTheme); else if(mq.addListener) mq.addListener(onTheme); }
+  }
+  renderMarkers();
+  setTimeout(()=>map.invalidateSize(), 60);
+}
+function renderMarkers(){
+  if(!map) return;
+  mapMarkers.forEach(mk=>map.removeLayer(mk)); mapMarkers=[];
+  const showAll = state.mapShow==='all';
+  const shown = M.filter(m=> m.lat!=null && (showAll || state.sel.has(m.id)));
+  const u=unitLbl(), pts=[];
+  shown.forEach(m=>{
+    const on = state.sel.has(m.id);
+    const mk = L.circleMarker([m.lat,m.lng], {
+      radius: 5 + (m.summit/8849)*7,
+      color: on ? '#ffffff' : 'rgba(255,255,255,.55)',
+      weight: on ? 2 : 1,
+      fillColor: on ? cssVar('--climb','#C05A26') : cssVar('--rock','#93A2A8'),
+      fillOpacity: on ? 0.95 : 0.65
+    }).addTo(map);
+    mk.bindPopup(`<b>${m.name}</b><br>${m.loc}<br>Summit ${fmt(m.summit)} ${u} &middot; Climb ${fmt(m.climb)} ${u}`);
+    mk.bindTooltip(m.name, {direction:'top', offset:[0,-4]});
+    mapMarkers.push(mk); pts.push([m.lat,m.lng]);
+  });
+  const note=document.getElementById('mapNote');
+  note.textContent = pts.length
+    ? (showAll ? 'Every mountain in the app — filled pins are your chart picks. Tap a pin for its heights.'
+               : 'Showing your chart picks. Switch to “All” to see every mountain. Tap a pin for its heights.')
+    : 'No mountains selected — switch to “All”, or tick some in the list below.';
+  if(pts.length===1){ map.setView(pts[0], 5); }
+  else if(pts.length){ map.fitBounds(pts, {padding:[34,34], maxZoom:5}); }
+}
+function updateMapIfVisible(){ if(map && state.view==='map') renderMarkers(); }
+function setView(v){
+  state.view=v;
+  document.querySelectorAll('.viewtabs [data-view]').forEach(x=>x.setAttribute('aria-pressed', x.dataset.view===v));
+  document.getElementById('chartCard').hidden = v!=='chart';
+  document.getElementById('mapCard').hidden = v!=='map';
+  if(v==='map') ensureMap();
+}
+document.querySelectorAll('.viewtabs [data-view]').forEach(b=>{
+  b.addEventListener('click', ()=>setView(b.dataset.view));
+});
+document.querySelectorAll('.mapshow [data-show]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    state.mapShow=b.dataset.show;
+    document.querySelectorAll('.mapshow [data-show]').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    renderMarkers();
   });
 });
 
