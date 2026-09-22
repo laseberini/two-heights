@@ -451,6 +451,7 @@ const M = [
   {id:"drakensberg",name:"Drakensberg",   loc:"Lesotho / RSA",      summit:3482, climb:1982, route:"Sani Pass Hotel (1,500 m) → summit", geo:"", fact:"Its highest peak, Thabana Ntlenyana ('Beautiful Little Mountain'), is the tallest mountain in all of southern Africa — and its top is a giant grassy plateau rather than a sharp peak."},
   {id:"bennevis",  name:"Ben Nevis",      loc:"Scotland, UK",       summit:1345, climb:1325, route:"Glen Nevis Centre → Mountain Track", geo:"", fact:"Britain's highest mountain — its summit is the collapsed remains of an ancient exploded volcano."},
   {id:"table",     name:"Table Mountain", loc:"Cape Town, RSA",     summit:1086, climb:736,  route:"Tafelberg Rd → Platteklip Gorge", geo:"", fact:"Table Mountain has a flat top like a table, and a cloud called the 'Tablecloth' often pours over its edge."},
+  {id:"formosa",   name:"Formosa Peak",   loc:"Plettenberg Bay, RSA",summit:1675, climb:1375, route:"Dam in the orchards below → summit", geo:"", fact:"The highest peak of the Tsitsikamma Mountains, looking down over Plettenberg Bay. Portuguese explorer Bartolomeu Dias named it 'Formosa' — 'beautiful' — in 1488, and the bay below became Bahia Formosa."},
 ];
 const COORDS = {
   everest:[27.988,86.925], k2:[35.883,76.513], lhotse:[27.962,86.933],
@@ -458,7 +459,8 @@ const COORDS = {
   chimborazo:[-1.469,-78.818], denali:[63.069,-151.007], kili:[-3.076,37.353],
   maunakea:[19.821,-155.468], montblanc:[45.833,6.865], puncak:[-4.078,137.158],
   rainier:[46.852,-121.760], matterhorn:[45.976,7.659], fuji:[35.361,138.727],
-  drakensberg:[-29.467,29.267], bennevis:[56.797,-5.004], table:[-33.958,18.403]
+  drakensberg:[-29.467,29.267], bennevis:[56.797,-5.004], table:[-33.958,18.403],
+  formosa:[-33.864,23.703]
 };
 M.forEach(m=>{ m.base = m.summit - m.climb; const c=COORDS[m.id]; if(c){ m.lat=c[0]; m.lng=c[1]; } });
 
@@ -1093,7 +1095,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v15";
+const VERSION = "v16";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
