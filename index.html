@@ -982,7 +982,7 @@ function exGoTo(id, immediate){
   const sel=document.getElementById('exSelect'); if(sel) sel.value=id;
   // highlight the chosen peak (amber pin); keep every marker + label on the map
   Object.keys(exMarkers).forEach(k=>{ exMarkers[k].setIcon(pinIcon(k===id)); });
-  const z=13;
+  const z=12;
   if(immediate) exMap.setView([m.lat,m.lng], z);
   else exMap.flyTo([m.lat,m.lng], z, {duration:0.9});
   const u=unitLbl();
@@ -1421,7 +1421,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v27";
+const VERSION = "v28";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
