@@ -152,7 +152,12 @@
     margin-top:0;background:var(--card);border:1px solid var(--line);
     border-radius:16px;box-shadow:var(--shadow);overflow:hidden;
   }
-  .viewtabs{display:inline-flex;margin:4px 0 14px}
+  .viewtabs{display:inline-flex;flex-wrap:wrap;margin:4px 0 14px}
+  #exploreMap{height:min(62vh,480px);width:100%;background:var(--card-2)}
+  .explore-pick{display:flex;align-items:center;gap:8px;padding:12px 16px 4px}
+  .ex-select{flex:1;min-width:0;font-family:"IBM Plex Sans",sans-serif;font-size:15px;font-weight:600;color:var(--ink);background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;-webkit-appearance:none;appearance:none;cursor:pointer}
+  .ex-nav{flex:0 0 auto;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
+  .ex-nav:hover{border-color:var(--climb);color:var(--climb)}
   #map{height:min(58vh,440px);width:100%;background:var(--card-2)}
   .maphead{flex-wrap:wrap;gap:8px}
   .mapctl{display:inline-flex;align-items:center;gap:8px}
@@ -351,6 +356,7 @@
   <div class="seg viewtabs" role="group" aria-label="Choose view">
     <button data-view="chart" aria-pressed="true">Chart</button>
     <button data-view="map" aria-pressed="false">Map</button>
+    <button data-view="explore" aria-pressed="false">Explore</button>
     <button data-view="quiz" aria-pressed="false">Quiz</button>
     <button data-view="puzzle" aria-pressed="false">Puzzle</button>
   </div>
@@ -381,6 +387,25 @@
     </div>
     <div id="map"></div>
     <p class="insight" id="mapNote">Tap a pin to see a mountain's heights.</p>
+  </section>
+
+  <section class="chart-card explore-card" id="exploreCard" aria-label="Explore each mountain" hidden>
+    <div class="chart-head maphead">
+      <div class="chart-title">Explore</div>
+      <div class="mapctl">
+        <div class="seg exlayer" role="group" aria-label="Map style">
+          <button data-layer="topo" aria-pressed="true">Topo</button>
+          <button data-layer="sat" aria-pressed="false">Satellite</button>
+        </div>
+      </div>
+    </div>
+    <div class="explore-pick">
+      <button class="ex-nav" id="exPrev" type="button" aria-label="Previous mountain">&lsaquo;</button>
+      <select class="ex-select" id="exSelect" aria-label="Choose a mountain to explore"></select>
+      <button class="ex-nav" id="exNext" type="button" aria-label="Next mountain">&rsaquo;</button>
+    </div>
+    <div id="exploreMap"></div>
+    <p class="insight" id="exploreNote"></p>
   </section>
 
   <section class="chart-card quiz-card" id="quizCard" aria-label="Mountain quiz" hidden>
@@ -493,6 +518,8 @@ let state = {
   mapShow:"selected",
   mapLabels:true,
   quizMode:"general",
+  exploreId:"everest",
+  exploreLayer:"topo",
 };
 const SEL_VERSION=3;
 try{
@@ -834,8 +861,10 @@ function setView(v){
   document.getElementById('mapCard').hidden = v!=='map';
   document.getElementById('quizCard').hidden = v!=='quiz';
   document.getElementById('puzzleCard').hidden = v!=='puzzle';
-  document.querySelector('.panel').hidden = (v==='quiz'||v==='puzzle');
+  document.getElementById('exploreCard').hidden = v!=='explore';
+  document.querySelector('.panel').hidden = (v==='quiz'||v==='puzzle'||v==='explore');
   if(v==='map') ensureMap();
+  if(v==='explore') ensureExplore();
   if(v==='quiz' && !quiz.order.length) startQuiz();
   if(v==='puzzle' && !puzzle.built){ puzzle.built=true; newPuzzle(); }
 }
@@ -874,6 +903,60 @@ document.querySelectorAll('.seg [data-unit]').forEach(x=>x.setAttribute("aria-pr
 
 let rt;
 window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{drawChart(); if(puzzle.built) layoutPuzzle();},120);});
+
+/* ---------------- EXPLORE (per-mountain zoomable map) ---------------- */
+let exMap=null, exTile=null, exMarker=null;
+function exTileLayer(kind){
+  if(kind==='sat') return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {maxZoom:18, attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'});
+  return L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    {subdomains:'abc', maxZoom:16, attribution:'&copy; OpenStreetMap contributors, SRTM | &copy; OpenTopoMap (CC-BY-SA)'});
+}
+function exList(){ return M.filter(m=>m.lat!=null); }
+async function ensureExplore(){
+  const note=document.getElementById('exploreNote');
+  try{ await loadLeaflet(); }
+  catch(e){ note.textContent='Could not load the map — check your internet connection and try again.'; return; }
+  if(!exMap){
+    exMap=L.map('exploreMap', {scrollWheelZoom:true, minZoom:2, maxZoom:18, zoomControl:true});
+    exTile=exTileLayer(state.exploreLayer).addTo(exMap);
+    const sel=document.getElementById('exSelect');
+    if(!sel.options.length){
+      exList().forEach(m=>{ const o=document.createElement('option'); o.value=m.id; o.textContent=m.name; sel.appendChild(o); });
+    }
+  }
+  exGoTo(state.exploreId, true);
+  setTimeout(()=>exMap.invalidateSize(), 60);
+}
+function exGoTo(id, immediate){
+  const m=M.find(x=>x.id===id); if(!m || m.lat==null || !exMap) return;
+  state.exploreId=id;
+  const sel=document.getElementById('exSelect'); if(sel) sel.value=id;
+  if(exMarker) exMap.removeLayer(exMarker);
+  exMarker=L.marker([m.lat,m.lng], {icon:pinIcon(true)}).addTo(exMap);
+  exMarker.bindTooltip(m.name, {permanent:true, direction:'top', className:'pinlabel'});
+  const z=13;
+  if(immediate) exMap.setView([m.lat,m.lng], z);
+  else exMap.flyTo([m.lat,m.lng], z, {duration:0.9});
+  const u=unitLbl();
+  document.getElementById('exploreNote').innerHTML =
+    `<b>${m.name}</b> — ${m.loc}. Summit ${fmt(m.summit)} ${u} &middot; climb ${fmt(m.climb)} ${u}. Pinch or scroll to zoom right in.`;
+}
+document.querySelectorAll('.exlayer [data-layer]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    state.exploreLayer=b.dataset.layer;
+    document.querySelectorAll('.exlayer [data-layer]').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    if(exMap){ if(exTile) exMap.removeLayer(exTile); exTile=exTileLayer(state.exploreLayer).addTo(exMap); }
+  });
+});
+(function(){
+  const sel=document.getElementById('exSelect');
+  if(sel) sel.addEventListener('change', e=>exGoTo(e.target.value));
+  const step=d=>{ const a=exList().map(m=>m.id); let i=a.indexOf(state.exploreId); i=(i+d+a.length)%a.length; exGoTo(a[i]); };
+  const p=document.getElementById('exPrev'), n=document.getElementById('exNext');
+  if(p) p.addEventListener('click', ()=>step(-1));
+  if(n) n.addEventListener('click', ()=>step(1));
+})();
 
 /* ---------------- QUIZ ---------------- */
 const QUIZ_GENERAL = [
@@ -1198,7 +1281,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v20";
+const VERSION = "v21";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
