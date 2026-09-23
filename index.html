@@ -179,6 +179,9 @@
   .labeltoggle{font-family:"IBM Plex Sans",sans-serif;font-size:12.5px;font-weight:500;color:var(--ink-soft);background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;cursor:pointer;box-shadow:var(--shadow-soft)}
   .labeltoggle[aria-pressed="true"]{color:var(--ink);border-color:var(--climb)}
   .labeltoggle[aria-pressed="false"]{opacity:.7}
+  .pz-cam{display:inline-flex;align-items:center;justify-content:center;width:40px;padding:0;color:var(--climb);border-color:var(--climb)}
+  .pz-cam svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .pz-cam:hover{background:var(--climb-tint)}
   #mapCard.labels-off .leaflet-marker-pane,
   #mapCard.labels-off .leaflet-tooltip.pinlabel{display:none!important}
   /* quiz */
@@ -461,6 +464,10 @@
         <button class="labeltoggle" id="puzzlePeek" type="button" aria-pressed="false" title="Peek at the finished picture">Peek</button>
         <button class="labeltoggle" id="puzzleHint" type="button" title="Show the next move">Hint</button>
         <button class="labeltoggle" id="puzzleNew" type="button" title="New picture">New</button>
+        <button class="labeltoggle pz-cam" id="puzzleCam" type="button" title="Make a puzzle from your own photo" aria-label="Photo puzzle from camera">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        </button>
+        <input type="file" id="puzzleFile" accept="image/*" hidden>
       </div>
     </div>
     <div class="puzzle-body">
@@ -1180,9 +1187,10 @@ function renderQuizResult(){
 /* ---------------- PHOTO SLIDE PUZZLE ---------------- */
 const PUZZLE_PICS = M.map(m=>m.id);
 let puzzle = { n:3, board:[], blank:0, moves:0, pic:null, tiles:[], built:false, solved:false, hints:true };
-function newPuzzle(){
+function newPuzzle(customUrl){
   const n=puzzle.n;
-  puzzle.pic = PUZZLE_PICS[Math.floor(Math.random()*PUZZLE_PICS.length)];
+  if(customUrl){ puzzle.custom=true; puzzle.imgUrl=customUrl; }
+  else { puzzle.custom=false; puzzle.pic=PUZZLE_PICS[Math.floor(Math.random()*PUZZLE_PICS.length)]; puzzle.imgUrl='photos/'+puzzle.pic+'.jpg'; }
   puzzle.moves=0; puzzle.solved=false;
   puzzle.board=[]; for(let i=0;i<n*n;i++) puzzle.board.push(i<n*n-1?i:null);
   puzzle.blank=n*n-1;
@@ -1190,8 +1198,9 @@ function newPuzzle(){
   const pk=document.getElementById('puzzlePeek'); if(pk){ pk.setAttribute('aria-pressed','false'); }
   document.getElementById('puzzleBoard').classList.remove('peek');
   renderPuzzleTiles();
-  const note=document.getElementById('puzzleNote');
-  note.textContent='Slide the tiles into the empty space to rebuild the photo. Can you guess which peak it is?';
+  document.getElementById('puzzleNote').textContent = puzzle.custom
+    ? 'Slide the tiles to rebuild your photo!'
+    : 'Slide the tiles into the empty space to rebuild the photo. Can you guess which peak it is?';
 }
 function shufflePuzzle(){
   const n=puzzle.n, N=n*n;
@@ -1232,7 +1241,7 @@ function layoutPuzzle(){
   const board=document.getElementById('puzzleBoard');
   if(!board || !puzzle.tiles.length) return;
   const S=board.clientWidth; if(!S) return;
-  const n=puzzle.n, ts=S/n, url='url("photos/'+puzzle.pic+'.jpg")';
+  const n=puzzle.n, ts=S/n, url='url("'+puzzle.imgUrl+'")';
   puzzle.tiles.forEach((t,id)=>{
     const gr=Math.floor(id/n), gc=id%n;
     t.style.width=ts+'px'; t.style.height=ts+'px';
@@ -1271,11 +1280,28 @@ function isPuzzleSolved(){
 function onPuzzleSolved(){
   puzzle.solved=true;
   const m=M.find(x=>x.id===puzzle.pic);
+  const name = puzzle.custom ? 'your photo' : (m?m.name:'this peak');
   const el=document.getElementById('puzzleSolved');
-  el.style.backgroundImage='url("photos/'+puzzle.pic+'.jpg")';
-  el.innerHTML='<div class="ps-cap"><b>Solved!</b> in '+puzzle.moves+' moves — it was '+(m?m.name:'this peak')+'!</div>';
+  el.style.backgroundImage='url("'+puzzle.imgUrl+'")';
+  el.innerHTML='<div class="ps-cap"><b>Solved!</b> in '+puzzle.moves+' moves — it was '+name+'!</div>';
   el.hidden=false;
-  document.getElementById('puzzleNote').textContent = (m?('That was '+m.name+'. '):'')+'Tap "New" for another photo.';
+  document.getElementById('puzzleNote').textContent = puzzle.custom
+    ? 'Nice one! Tap the camera for another photo, or New for a mountain.'
+    : ((m?('That was '+m.name+'. '):'')+'Tap "New" for another photo.');
+}
+// Turn a chosen/taken photo into a puzzle: centre-crop to a square and downscale
+function loadCustomPuzzleImage(dataUrl){
+  const img=new Image();
+  img.onload=()=>{
+    const size=640, cnv=document.createElement('canvas'); cnv.width=size; cnv.height=size;
+    const ctx=cnv.getContext('2d');
+    const s=Math.min(img.width, img.height);
+    ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, size, size);
+    let out; try{ out=cnv.toDataURL('image/jpeg', 0.86); }catch(e){ out=dataUrl; }
+    newPuzzle(out);
+  };
+  img.onerror=()=>newPuzzle(dataUrl);
+  img.src=dataUrl;
 }
 // Next-move hint: IDA* (optimal on 2x2/3x3, budgeted on 4x4 with a greedy fallback)
 function solveNextMove(){
@@ -1336,11 +1362,24 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
   b.addEventListener('click', ()=>{
     puzzle.n=parseInt(b.dataset.size,10);
     document.querySelectorAll('.puzzsize [data-size]').forEach(x=>x.setAttribute('aria-pressed', x===b));
-    newPuzzle();
+    newPuzzle(puzzle.custom ? puzzle.imgUrl : undefined);
   });
 });
 (function(){
-  const nw=document.getElementById('puzzleNew'); if(nw) nw.addEventListener('click', newPuzzle);
+  const nw=document.getElementById('puzzleNew'); if(nw) nw.addEventListener('click', ()=>newPuzzle());
+  const cam=document.getElementById('puzzleCam'), fileIn=document.getElementById('puzzleFile');
+  if(cam && fileIn){
+    cam.addEventListener('click', ()=>fileIn.click());
+    fileIn.addEventListener('change', ()=>{
+      const f=fileIn.files && fileIn.files[0];
+      if(f){
+        const reader=new FileReader();
+        reader.onload=ev=>loadCustomPuzzleImage(ev.target.result);
+        reader.readAsDataURL(f);
+      }
+      fileIn.value='';
+    });
+  }
   const pk=document.getElementById('puzzlePeek');
   if(pk) pk.addEventListener('click', ()=>{
     const on = pk.getAttribute('aria-pressed')!=='true';
@@ -1373,7 +1412,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v22";
+const VERSION = "v23";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
