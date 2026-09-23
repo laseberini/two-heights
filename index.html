@@ -158,6 +158,21 @@
   .ex-select{flex:1;min-width:0;font-family:"IBM Plex Sans",sans-serif;font-size:15px;font-weight:600;color:var(--ink);background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;-webkit-appearance:none;appearance:none;cursor:pointer}
   .ex-nav{flex:0 0 auto;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
   .ex-nav:hover{border-color:var(--climb);color:var(--climb)}
+  .climb-body{padding:6px 16px 18px}
+  .climb-img{width:100%;max-height:440px;object-fit:contain;background:var(--card-2);border:1px solid var(--line-soft);border-radius:12px;display:block;cursor:zoom-in}
+  .climb-cap{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:9px 0 2px}
+  .climb-lic{display:block;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-faint);margin-top:3px}
+  .climb-route-name{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.03em;color:var(--climb);font-weight:600;text-transform:uppercase;margin:14px 0 8px}
+  .route{position:relative;padding-left:26px;margin-top:2px}
+  .route::before{content:"";position:absolute;left:9px;top:12px;bottom:12px;width:2px;background:var(--climb);opacity:.4}
+  .rstage{position:relative;padding:3px 0}
+  .rdot{position:absolute;left:-21px;top:5px;width:13px;height:13px;border-radius:50%;background:var(--climb);border:2px solid var(--card);box-shadow:0 0 0 1px var(--climb)}
+  .rstage.summit .rdot{background:var(--sea);box-shadow:0 0 0 1px var(--sea);width:15px;height:15px;left:-22px}
+  .rstage.base .rdot{background:var(--rock);box-shadow:0 0 0 1px var(--rock)}
+  .rinfo{display:flex;flex-direction:column;line-height:1.25}
+  .rname{font-family:"Zilla Slab",serif;font-weight:600;font-size:15px}
+  .relev{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);font-weight:600}
+  .rgain{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--climb);opacity:.85;padding:2px 0 2px 2px}
   #map{height:min(58vh,440px);width:100%;background:var(--card-2)}
   .maphead{flex-wrap:wrap;gap:8px}
   .mapctl{display:inline-flex;align-items:center;gap:8px}
@@ -357,6 +372,7 @@
     <button data-view="chart" aria-pressed="true">Chart</button>
     <button data-view="map" aria-pressed="false">Map</button>
     <button data-view="explore" aria-pressed="false">Explore</button>
+    <button data-view="climb" aria-pressed="false">Climb</button>
     <button data-view="quiz" aria-pressed="false">Quiz</button>
     <button data-view="puzzle" aria-pressed="false">Puzzle</button>
   </div>
@@ -406,6 +422,16 @@
     </div>
     <div id="exploreMap"></div>
     <p class="insight" id="exploreNote"></p>
+  </section>
+
+  <section class="chart-card climb-card" id="climbCard" aria-label="Climbing routes" hidden>
+    <div class="chart-head"><div class="chart-title">Climbing route</div></div>
+    <div class="explore-pick">
+      <button class="ex-nav" id="climbPrev" type="button" aria-label="Previous mountain">&lsaquo;</button>
+      <select class="ex-select" id="climbSelect" aria-label="Choose a mountain"></select>
+      <button class="ex-nav" id="climbNext" type="button" aria-label="Next mountain">&rsaquo;</button>
+    </div>
+    <div class="climb-body" id="climbBody"></div>
   </section>
 
   <section class="chart-card quiz-card" id="quizCard" aria-label="Mountain quiz" hidden>
@@ -520,6 +546,7 @@ let state = {
   quizMode:"general",
   exploreId:"everest",
   exploreLayer:"topo",
+  climbId:"everest",
 };
 const SEL_VERSION=3;
 try{
@@ -777,6 +804,7 @@ document.querySelectorAll('.seg [data-unit]').forEach(b=>{
     state.unit=b.dataset.unit; state.units=b.dataset.unit; save();
     document.querySelectorAll('.seg [data-unit]').forEach(x=>x.setAttribute("aria-pressed", x===b));
     renderList(); drawChart(); renderInsight(); updateMapIfVisible();
+    if(state.view==='climb') renderClimb(state.climbId);
   });
 });
 
@@ -862,9 +890,11 @@ function setView(v){
   document.getElementById('quizCard').hidden = v!=='quiz';
   document.getElementById('puzzleCard').hidden = v!=='puzzle';
   document.getElementById('exploreCard').hidden = v!=='explore';
-  document.querySelector('.panel').hidden = (v==='quiz'||v==='puzzle'||v==='explore');
+  document.getElementById('climbCard').hidden = v!=='climb';
+  document.querySelector('.panel').hidden = (v==='quiz'||v==='puzzle'||v==='explore'||v==='climb');
   if(v==='map') ensureMap();
   if(v==='explore') ensureExplore();
+  if(v==='climb') ensureClimb();
   if(v==='quiz' && !quiz.order.length) startQuiz();
   if(v==='puzzle' && !puzzle.built){ puzzle.built=true; newPuzzle(); }
 }
@@ -954,6 +984,68 @@ document.querySelectorAll('.exlayer [data-layer]').forEach(b=>{
   if(sel) sel.addEventListener('change', e=>exGoTo(e.target.value));
   const step=d=>{ const a=exList().map(m=>m.id); let i=a.indexOf(state.exploreId); i=(i+d+a.length)%a.length; exGoTo(a[i]); };
   const p=document.getElementById('exPrev'), n=document.getElementById('exNext');
+  if(p) p.addEventListener('click', ()=>step(-1));
+  if(n) n.addEventListener('click', ()=>step(1));
+})();
+
+/* ---------------- CLIMB (route maps + stages) ---------------- */
+const CLIMB = {
+  everest:{img:"routes/everest.svg",lic:"CC BY-SA 4.0",cap:"Everest with the historic climbing routes drawn on the photo.",route:"South Col (SE Ridge)",stages:[["South Base Camp",5364],["Camp I",6065],["Camp II (Advanced BC)",6400],["Camp III",7200],["Camp IV (South Col)",7950],["Summit",8849]]},
+  k2:{img:"routes/k2.jpg",lic:"CC BY-SA 3.0",cap:"K2 from the south with the main routes marked — the Abruzzi Spur is the usual one.",route:"Abruzzi Spur",stages:[["Base Camp",5150],["Camp 1",6100],["Camp 2",6700],["Camp 3",7350],["Camp 4 (Shoulder)",7900],["Summit",8611]]},
+  lhotse:{img:"routes/lhotse.jpg",lic:"Public domain",cap:"Everest and Lhotse from space — Lhotse climbers share the Western Cwm approach.",route:"West Face (shared Everest approach)",stages:[["South Base Camp",5364],["Camp I",6065],["Camp II",6400],["Camp III",7200],["Camp IV",7900],["Summit",8516]]},
+  kangchenjunga:{img:"routes/kangchenjunga.svg",lic:"CC BY-SA 4.0",cap:"The Yalung Face with the 1955 first-ascent route drawn on.",route:"SW (Yalung) Face",stages:[["Base Camp",5475],["Camp 1",6200],["Camp 2",6400],["Camp 3",7100],["Camp 4",7570],["Summit",8586]]},
+  nanga:{img:"routes/nanga.jpg",lic:"Public domain",cap:"The Rakhiot Face of Nanga Parbat with early expedition routes drawn on.",route:"Kinshofer (Diamir Face)",stages:[["Base Camp",4220],["Camp 1",4900],["Camp 2",6100],["Camp 3",6700],["Camp 4",7150],["Summit",8126]]},
+  aconcagua:{img:"routes/aconcagua.jpg",lic:"CC BY-SA 4.0",cap:"A map tracing the normal route to the summit of Aconcagua.",route:"Normal Route (Horcones)",stages:[["Horcones Trailhead",2950],["Confluencia",3400],["Plaza de Mulas (BC)",4370],["Plaza Canadá",4910],["Nido de Cóndores",5380],["Cólera",5970],["Summit",6961]]},
+  chimborazo:{img:"routes/chimborazo.png",lic:"CC BY-SA 3.0",cap:"A sketch of Chimborazo's routes, huts and summits.",route:"Normal Route (Whymper)",stages:[["Carrel Refuge",4850],["Whymper Refuge",5000],["Summit",6263]]},
+  denali:{img:"routes/denali.jpg",lic:"CC BY 3.0",cap:"The West Buttress — the most popular route up Denali — labelled on a photo.",route:"West Buttress",stages:[["Kahiltna Base Camp",2195],["Camp 1",2377],["Camp 2 (11k)",3353],["Camp 3 (14k)",4328],["High Camp (17k)",5243],["Summit",6190]]},
+  kilimanjaro:{img:"routes/kilimanjaro.jpg",lic:"Public domain",cap:"An old map of the first routes up Kilimanjaro (Hans Meyer).",route:"Machame Route",stages:[["Machame Gate",1800],["Machame Camp",3000],["Shira Camp",3840],["Barranco Camp",3960],["Karanga Camp",3995],["Barafu Camp",4640],["Uhuru Peak",5895]]},
+  maunakea:{img:null,route:"Humʻula Trail",stages:[["Visitor Station",2804],["Summit (Puʻu Wekiu)",4207]]},
+  montblanc:{img:"routes/montblanc.jpg",lic:"CC BY-SA 2.0 FR",cap:"The Goûter (normal) route side of Mont Blanc, past the huts and glaciers.",route:"Goûter Route",stages:[["Nid d'Aigle",2372],["Tête Rousse Hut",3167],["Goûter Hut",3835],["Vallot Hut",4362],["Summit",4808]]},
+  puncak:{img:null,route:"Normal Route (North Face)",stages:[["Base Camp (Yellow Valley)",4250],["Summit",4884]]},
+  rainier:{img:"routes/rainier.gif",lic:"Public domain",cap:"A US National Park Service map of the route from Paradise up to Camp Muir.",route:"Disappointment Cleaver",stages:[["Paradise",1652],["Camp Muir",3072],["Ingraham Flats",3353],["Top of the Cleaver",3749],["Summit",4392]]},
+  matterhorn:{img:"routes/matterhorn.jpg",lic:"CC BY-SA 3.0",cap:"The Hörnli ridge, the usual route up the Matterhorn, with the Solvay hut marked.",route:"Hörnli Ridge",stages:[["Hörnli Hut",3260],["Solvay Hut",4003],["Summit",4478]]},
+  fuji:{img:"routes/fuji.jpg",lic:"Public domain",cap:"A historical Japanese picture-map of the trails up Mount Fuji.",route:"Yoshida Trail",stages:[["5th Station",2305],["6th Station",2390],["7th Station",2700],["8th Station",3100],["Original 8th",3400],["Summit",3776]]},
+  drakensberg:{img:null,route:"From Sani Pass",stages:[["Sani Pass (top)",2876],["Summit",3482]]},
+  bennevis:{img:"routes/bennevis.jpg",lic:"Public domain",cap:"An old postcard of the zig-zag Pony Track path up Ben Nevis.",route:"Mountain (Pony) Track",stages:[["Glen Nevis (Achintee)",20],["Halfway Lochan",570],["Summit",1345]]},
+  table:{img:"routes/table.jpg",lic:"CC BY-SA 4.0",cap:"The steep Platteklip Gorge trail, the main walking route up Table Mountain.",route:"Platteklip Gorge",stages:[["Tafelberg Rd Trailhead",350],["Summit (Maclear's Beacon)",1086]]},
+  formosa:{img:null,route:"Tsitsikamma (from the dam)",stages:[["Dam Trailhead",300],["Summit",1675]]},
+};
+function ensureClimb(){
+  const sel=document.getElementById('climbSelect');
+  if(sel && !sel.options.length){
+    M.filter(m=>CLIMB[m.id]).forEach(m=>{ const o=document.createElement('option'); o.value=m.id; o.textContent=m.name; sel.appendChild(o); });
+  }
+  renderClimb(state.climbId);
+}
+function renderClimb(id){
+  const c=CLIMB[id], m=M.find(x=>x.id===id);
+  if(!c||!m) return;
+  state.climbId=id;
+  const sel=document.getElementById('climbSelect'); if(sel) sel.value=id;
+  const u=unitLbl(), st=c.stages, base=st[0][1], summit=st[st.length-1][1], total=summit-base;
+  let html='';
+  if(c.img){
+    html += `<img class="climb-img" src="${c.img}" alt="${m.name} climbing route" loading="lazy" onerror="this.style.display='none'">`;
+    html += `<p class="climb-cap">${c.cap}<span class="climb-lic">Route map: Wikimedia Commons &middot; ${c.lic}</span></p>`;
+  } else {
+    html += `<p class="climb-cap">No freely-licensed route map for ${m.name} yet — here's the climb as stages.</p>`;
+  }
+  html += `<div class="climb-route-name">${c.route} &middot; climb ${fmt(total)} ${u}</div>`;
+  html += '<div class="route">';
+  for(let i=st.length-1;i>=0;i--){
+    const s=st[i], isSummit=i===st.length-1, isBase=i===0;
+    html += `<div class="rstage${isSummit?' summit':''}${isBase?' base':''}"><span class="rdot"></span><div class="rinfo"><span class="rname">${s[0]}</span><span class="relev">${fmt(s[1])} ${u}</span></div></div>`;
+    if(i>0){ const gain=s[1]-st[i-1][1]; html += `<div class="rgain">&#9650; ${fmt(gain)} ${u}</div>`; }
+  }
+  html += '</div>';
+  document.getElementById('climbBody').innerHTML=html;
+}
+(function(){
+  const sel=document.getElementById('climbSelect');
+  if(sel) sel.addEventListener('change', e=>renderClimb(e.target.value));
+  const ids=()=>M.filter(m=>CLIMB[m.id]).map(m=>m.id);
+  const step=d=>{ const a=ids(); let i=a.indexOf(state.climbId); i=(i+d+a.length)%a.length; renderClimb(a[i]); };
+  const p=document.getElementById('climbPrev'), n=document.getElementById('climbNext');
   if(p) p.addEventListener('click', ()=>step(-1));
   if(n) n.addEventListener('click', ()=>step(1));
 })();
@@ -1272,7 +1364,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
   function openLB(src,cap){ lbi.src=src; lbi.alt=cap||''; lbc.textContent=cap||''; lb.hidden=false; document.body.style.overflow='hidden'; }
   function closeLB(){ lb.hidden=true; lbi.src=''; document.body.style.overflow=''; }
   document.addEventListener('click', e=>{
-    const img=e.target.closest('.detail-photo, .mpop img');
+    const img=e.target.closest('.detail-photo, .mpop img, .climb-img');
     if(img && img.getAttribute('src')){ e.stopPropagation(); openLB(img.src, img.alt); }
   });
   lb.addEventListener('click', closeLB);
@@ -1281,7 +1373,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v21";
+const VERSION = "v22";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
