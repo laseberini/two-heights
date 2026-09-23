@@ -946,7 +946,7 @@ let rt;
 window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{drawChart(); if(puzzle.built) layoutPuzzle();},120);});
 
 /* ---------------- EXPLORE (per-mountain zoomable map) ---------------- */
-let exMap=null, exTile=null, exMarker=null;
+let exMap=null, exTile=null, exMarkers={};
 function exTileLayer(kind){
   if(kind==='sat') return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {maxZoom:18, attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'});
@@ -965,6 +965,13 @@ async function ensureExplore(){
     if(!sel.options.length){
       exList().forEach(m=>{ const o=document.createElement('option'); o.value=m.id; o.textContent=m.name; sel.appendChild(o); });
     }
+    // add every peak as a labelled marker so neighbours (e.g. Everest by Lhotse) stay visible
+    exList().forEach(m=>{
+      const mk=L.marker([m.lat,m.lng], {icon:pinIcon(m.id===state.exploreId)}).addTo(exMap);
+      mk.bindTooltip(m.name, {permanent:true, direction:'top', className:'pinlabel'});
+      mk.on('click', ()=>exGoTo(m.id));
+      exMarkers[m.id]=mk;
+    });
   }
   exGoTo(state.exploreId, true);
   setTimeout(()=>exMap.invalidateSize(), 60);
@@ -973,9 +980,8 @@ function exGoTo(id, immediate){
   const m=M.find(x=>x.id===id); if(!m || m.lat==null || !exMap) return;
   state.exploreId=id;
   const sel=document.getElementById('exSelect'); if(sel) sel.value=id;
-  if(exMarker) exMap.removeLayer(exMarker);
-  exMarker=L.marker([m.lat,m.lng], {icon:pinIcon(true)}).addTo(exMap);
-  exMarker.bindTooltip(m.name, {permanent:true, direction:'top', className:'pinlabel'});
+  // highlight the chosen peak (amber pin); keep every marker + label on the map
+  Object.keys(exMarkers).forEach(k=>{ exMarkers[k].setIcon(pinIcon(k===id)); });
   const z=13;
   if(immediate) exMap.setView([m.lat,m.lng], z);
   else exMap.flyTo([m.lat,m.lng], z, {duration:0.9});
@@ -1415,7 +1421,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v26";
+const VERSION = "v27";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
