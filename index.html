@@ -1019,18 +1019,21 @@ function newPuzzle(){
   note.textContent='Slide the tiles into the empty space to rebuild the photo. Can you guess which peak it is?';
 }
 function shufflePuzzle(){
-  const n=puzzle.n, b=puzzle.board; let blank=puzzle.blank, last=-1;
-  const K=n*n*6;
-  for(let k=0;k<K;k++){
-    const r=Math.floor(blank/n), c=blank%n, nb=[];
-    if(r>0) nb.push(blank-n); if(r<n-1) nb.push(blank+n);
-    if(c>0) nb.push(blank-1); if(c<n-1) nb.push(blank+1);
-    const cand=nb.filter(x=>x!==last);
-    const pick=cand[Math.floor(Math.random()*cand.length)];
-    b[blank]=b[pick]; b[pick]=null; last=blank; blank=pick;
-  }
-  puzzle.blank=blank;
-  if(isPuzzleSolved()) shufflePuzzle();
+  const n=puzzle.n, N=n*n;
+  do {
+    puzzle.board=[]; for(let i=0;i<N;i++) puzzle.board.push(i<N-1?i:null);
+    let blank=N-1, last=-1;
+    const K=N*6 + Math.floor(Math.random()*7); // vary length so tiny boards can't cycle back to solved
+    for(let k=0;k<K;k++){
+      const r=Math.floor(blank/n), c=blank%n, nb=[];
+      if(r>0) nb.push(blank-n); if(r<n-1) nb.push(blank+n);
+      if(c>0) nb.push(blank-1); if(c<n-1) nb.push(blank+1);
+      let cand=nb.filter(x=>x!==last); if(!cand.length) cand=nb;
+      const pick=cand[Math.floor(Math.random()*cand.length)];
+      puzzle.board[blank]=puzzle.board[pick]; puzzle.board[pick]=null; last=blank; blank=pick;
+    }
+    puzzle.blank=blank;
+  } while(isPuzzleSolved());
 }
 function renderPuzzleTiles(){
   const board=document.getElementById('puzzleBoard');
@@ -1195,7 +1198,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v19";
+const VERSION = "v20";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
