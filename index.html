@@ -192,6 +192,8 @@
   .ptile{position:absolute;left:0;top:0;border:0;padding:0;margin:0;background-repeat:no-repeat;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);transition:left .14s ease,top .14s ease}
   .ptile .pnum{position:absolute;top:3px;left:4px;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:#fff;background:rgba(10,16,20,.6);border-radius:5px;padding:1px 5px;pointer-events:none;display:none}
   .puzzle-board.hints .ptile .pnum{display:block}
+  .ptile.hintmove{z-index:6;box-shadow:inset 0 0 0 3px var(--climb),0 0 12px 2px var(--climb);animation:hintpulse 1s ease-in-out infinite}
+  @keyframes hintpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.28)}}
   .puzzle-board.no-anim .ptile{transition:none}
   .puzzle-peek{position:absolute;inset:0;background-size:cover;background-position:center;display:none;pointer-events:none}
   .puzzle-board.peek .puzzle-peek{display:block}
@@ -400,11 +402,13 @@
       <div class="chart-title">Slide puzzle</div>
       <div class="mapctl">
         <div class="seg puzzsize" role="group" aria-label="Difficulty">
+          <button data-size="2" aria-pressed="false">2×2</button>
           <button data-size="3" aria-pressed="true">3×3</button>
           <button data-size="4" aria-pressed="false">4×4</button>
         </div>
-        <button class="labeltoggle" id="puzzleHints" type="button" aria-pressed="true" title="Show number hints">Hints</button>
+        <button class="labeltoggle" id="puzzleHints" type="button" aria-pressed="true" title="Show tile numbers">Numbers</button>
         <button class="labeltoggle" id="puzzlePeek" type="button" aria-pressed="false" title="Peek at the finished picture">Peek</button>
+        <button class="labeltoggle" id="puzzleHint" type="button" title="Show the next move">Hint</button>
         <button class="labeltoggle" id="puzzleNew" type="button" title="New picture">New</button>
       </div>
     </div>
@@ -1071,6 +1075,7 @@ function positionPuzzle(){
 }
 function tapTile(id){
   if(puzzle.solved) return;
+  clearHintHighlight();
   const n=puzzle.n, cell=puzzle.board.indexOf(id), b=puzzle.blank;
   const adj=(Math.abs(cell-b)===1 && Math.floor(cell/n)===Math.floor(b/n)) || (Math.abs(cell-b)===n);
   if(!adj) return;
@@ -1094,6 +1099,61 @@ function onPuzzleSolved(){
   el.hidden=false;
   document.getElementById('puzzleNote').textContent = (m?('That was '+m.name+'. '):'')+'Tap "New" for another photo.';
 }
+// Next-move hint: IDA* (optimal on 2x2/3x3, budgeted on 4x4 with a greedy fallback)
+function solveNextMove(){
+  const n=puzzle.n, N=n*n, BL=N-1;
+  const start=puzzle.board.map(x=>x==null?BL:x);
+  const manhattan=s=>{let d=0;for(let c=0;c<N;c++){const t=s[c];if(t===BL)continue;d+=Math.abs((c/n|0)-(t/n|0))+Math.abs((c%n)-(t%n));}return d;};
+  const linConf=s=>{let lc=0;
+    for(let r=0;r<n;r++)for(let i=0;i<n;i++){const ti=s[r*n+i];if(ti===BL||(ti/n|0)!==r)continue;for(let j=i+1;j<n;j++){const tj=s[r*n+j];if(tj===BL||(tj/n|0)!==r)continue;if((ti%n)>(tj%n))lc+=2;}}
+    for(let c=0;c<n;c++)for(let i=0;i<n;i++){const ti=s[i*n+c];if(ti===BL||(ti%n)!==c)continue;for(let j=i+1;j<n;j++){const tj=s[j*n+c];if(tj===BL||(tj%n)!==c)continue;if((ti/n|0)>(tj/n|0))lc+=2;}}
+    return lc;};
+  const h=s=>manhattan(s)+linConf(s);
+  const t0=performance.now(), BUDGET=500, s=start.slice();
+  let firstCell=-1;
+  function dfs(g, prevBlank, depth, threshold){
+    if(performance.now()-t0>BUDGET) return -2;
+    const hv=h(s), f=g+hv;
+    if(f>threshold) return f;
+    if(hv===0) return -1;
+    let min=Infinity;
+    const bl=s.indexOf(BL), r=bl/n|0, c=bl%n, nbs=[];
+    if(r>0)nbs.push(bl-n); if(r<n-1)nbs.push(bl+n); if(c>0)nbs.push(bl-1); if(c<n-1)nbs.push(bl+1);
+    for(const nb of nbs){
+      if(nb===prevBlank) continue;
+      s[bl]=s[nb]; s[nb]=BL;
+      if(depth===0) firstCell=nb;
+      const t=dfs(g+1, bl, depth+1, threshold);
+      s[nb]=s[bl]; s[bl]=BL;
+      if(t===-1) return -1;
+      if(t===-2) return -2;
+      if(t<min) min=t;
+    }
+    return min;
+  }
+  let threshold=h(s);
+  while(true){
+    firstCell=-1;
+    const t=dfs(0,-1,0,threshold);
+    if(t===-1) return firstCell;
+    if(t===-2 || t===Infinity) break;
+    threshold=t;
+    if(performance.now()-t0>BUDGET) break;
+  }
+  // greedy fallback
+  const bl=start.indexOf(BL), r=bl/n|0, c=bl%n, nbs=[];
+  if(r>0)nbs.push(bl-n); if(r<n-1)nbs.push(bl+n); if(c>0)nbs.push(bl-1); if(c<n-1)nbs.push(bl+1);
+  let best=nbs[0], bestH=Infinity;
+  for(const nb of nbs){ const s2=start.slice(); s2[bl]=s2[nb]; s2[nb]=BL; const hv=h(s2); if(hv<bestH){bestH=hv;best=nb;} }
+  return best;
+}
+function clearHintHighlight(){ puzzle.tiles.forEach(t=>t&&t.classList.remove('hintmove')); }
+function showNextMoveHint(){
+  if(puzzle.solved) return;
+  clearHintHighlight();
+  const cell=solveNextMove();
+  if(cell>=0){ const id=puzzle.board[cell]; if(id!=null && puzzle.tiles[id]) puzzle.tiles[id].classList.add('hintmove'); }
+}
 document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
   b.addEventListener('click', ()=>{
     puzzle.n=parseInt(b.dataset.size,10);
@@ -1115,6 +1175,8 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
     hn.setAttribute('aria-pressed', puzzle.hints);
     document.getElementById('puzzleBoard').classList.toggle('hints', puzzle.hints);
   });
+  const hint=document.getElementById('puzzleHint');
+  if(hint) hint.addEventListener('click', showNextMoveHint);
 })();
 
 /* ---------------- LIGHTBOX (tap a photo to enlarge) ---------------- */
@@ -1133,7 +1195,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v18";
+const VERSION = "v19";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
