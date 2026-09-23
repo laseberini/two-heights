@@ -467,7 +467,7 @@
         <button class="labeltoggle pz-cam" id="puzzleCam" type="button" title="Make a puzzle from your own photo" aria-label="Photo puzzle from camera">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
         </button>
-        <input type="file" id="puzzleFile" accept="image/*" hidden>
+        <input type="file" id="puzzleFile" accept="image/*" capture="environment" hidden>
       </div>
     </div>
     <div class="puzzle-body">
@@ -1412,7 +1412,7 @@ document.querySelectorAll('.puzzsize [data-size]').forEach(b=>{
 })();
 
 /* ---------------- VERSION + REFRESH ---------------- */
-const VERSION = "v24";
+const VERSION = "v25";
 (function(){
   const v=document.getElementById('verTag'); if(v) v.textContent=VERSION;
   const b=document.getElementById('refreshBtn');
